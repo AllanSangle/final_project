@@ -1,8 +1,13 @@
+import 'package:final_project/Comment.dart';
+import 'package:final_project/RegisterAccount.dart';
+import 'package:final_project/Server.dart';
+import 'package:final_project/Users.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:final_project/firebase_options.dart';
-
+import 'Tweet.dart';
 
 void main() async
 {
@@ -11,78 +16,311 @@ void main() async
   runApp(const MaterialApp(home: TweetWidget()));
 }
 
-final tweetsRef = FirebaseFirestore.instance.collection('tweets');
-final commentsRef = FirebaseFirestore.instance.collection('comments');
-
-
-class Tweet {
-  String? id; // Add ID field for Firebase
-  final String userLongName;
-  final String userShortName;
-  final DateTime timestamp;
-  final String description;
-  final String imageURL;
-  int numComments;
-  int numRetweets;
-  int numLikes;
-  bool isBookmarked;
-  bool isLiked;
-  bool isRetweeted;
-  List<Comment> comments;
-
-  Tweet({
-    this.id,
-    required this.userLongName,
-    required this.userShortName,
-    required this.timestamp,
-    required this.description,
-    required this.imageURL,
-    this.numComments = 0,
-    this.numRetweets = 0,
-    this.numLikes = 0,
-    this.isBookmarked = false,
-    this.isLiked = false,
-    this.isRetweeted = false,
-    this.comments = const [],
-  });
-
-  // Convert Tweet to Map for Firebase
-  Map<String, dynamic> toMap() {
-    return {
-      'userLongName': userLongName,
-      'userShortName': userShortName,
-      'timestamp': timestamp,
-      'description': description,
-      'imageURL': imageURL,
-      'numComments': numComments,
-      'numRetweets': numRetweets,
-      'numLikes': numLikes,
-      'isBookmarked': isBookmarked,
-      'isLiked': isLiked,
-      'isRetweeted': isRetweeted,
-    };
-  }
-
-  // Create Tweet from Firebase document
-  static Tweet fromDocument(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return Tweet(
-      id: doc.id,
-      userLongName: data['userLongName'],
-      userShortName: data['userShortName'],
-      timestamp: (data['timestamp'] as Timestamp).toDate(),
-      description: data['description'],
-      imageURL: data['imageURL'],
-      numComments: data['numComments'],
-      numRetweets: data['numRetweets'],
-      numLikes: data['numLikes'],
-      isBookmarked: data['isBookmarked'],
-      isLiked: data['isLiked'],
-      isRetweeted: data['isRetweeted'],
+class AuthChecker extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<User?>(
+      stream: FirebaseAuth.instance.authStateChanges(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        } else if (snapshot.hasData) {
+          return TweetWidget();
+        } else {
+          return LoginPage();
+        }
+      },
     );
   }
 }
 
+class LoginPage extends StatefulWidget {
+  @override
+  _LoginPageState createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  Future<void> _login() async {
+    if (_formKey.currentState!.validate()) {
+      try {
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+          email: _emailController.text,
+          password: _passwordController.text,
+        );
+      } on FirebaseAuthException catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? 'Login error')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Login Page')),
+      body: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              TextFormField(
+                controller: _emailController,
+                decoration: InputDecoration(
+                  labelText: 'Email',
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.emailAddress,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your email';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 16.0),
+              TextFormField(
+                controller: _passwordController,
+                decoration: InputDecoration(
+                  labelText: 'Password',
+                  border: OutlineInputBorder(),
+                ),
+                obscureText: true,
+                validator: (value) {
+                  if (value == null || value.isEmpty) {
+                    return 'Please enter your password';
+                  }
+                  return null;
+                },
+              ),
+              SizedBox(height: 20.0),
+              ElevatedButton(
+                onPressed: _login,
+                child: Text('Login'),
+              ),
+              SizedBox(height: 10.0),
+              TextButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => RegisterPage()),
+                  );
+                },
+                child: Text('Don\'t have an account? Register here'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+
+class TweetHeader extends StatelessWidget {
+  final Tweet tweet;
+  final VoidCallback onHideTweet;
+
+  const TweetHeader({
+    Key? key,
+    required this.tweet,
+    required this.onHideTweet,
+  }) : super(key: key);
+
+  void _showHideDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Hide Tweet"),
+        content: const Text("Would You Like To Hide This Tweet?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () {
+              onHideTweet();
+              Navigator.of(context).pop();
+            },
+            child: const Text("Hide"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    String timeString = '${tweet.timestamp.hour}:${tweet.timestamp.minute}';
+
+    return Row(
+      children: [
+        const CircleAvatar(radius: 15, backgroundColor: Colors.grey),
+        const SizedBox(width: 8.0),
+        Expanded(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(2.0),
+                child: Row(
+                  children: [
+                    Text(
+                      tweet.userLongName,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 5.0),
+                    Text(
+                      '@${tweet.userShortName}',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                    const SizedBox(width: 5.0),
+                    Text(
+                      '· $timeString',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.expand_more, size: 15, color: Colors.grey),
+                      onPressed: () => _showHideDialog(context),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// TweetActions component for handling likes, retweets, etc.
+class TweetActions extends StatelessWidget {
+  final Tweet tweet;
+  final TweetInteractionManager interactions;
+  final VoidCallback onBookmark;
+
+  const TweetActions({
+    Key? key,
+    required this.tweet,
+    required this.interactions,
+    required this.onBookmark,
+  }) : super(key: key);
+
+  Widget _iconWithCount(IconData icon, int count, VoidCallback onPressed, {Color? iconColor}) {
+    return Row(
+      children: [
+        IconButton(
+          icon: Icon(icon, color: iconColor ?? Colors.grey),
+          onPressed: onPressed,
+        ),
+        Text(count.toString(), style: const TextStyle(fontSize: 11)),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        _iconWithCount(
+          Icons.chat_bubble_outline,
+          tweet.numComments,
+          () => interactions.addComment(context),
+        ),
+        const SizedBox(width: 20),
+        _iconWithCount(
+          tweet.isRetweeted ? Icons.repeat : Icons.repeat_outlined,
+          tweet.numRetweets,
+          interactions.addRetweet,
+          iconColor: tweet.isRetweeted ? const Color.fromARGB(255, 25, 129, 28) : Colors.grey,
+        ),
+        const SizedBox(width: 20),
+        _iconWithCount(
+          tweet.isLiked ? Icons.favorite : Icons.favorite_border,
+          tweet.numLikes,
+          interactions.addLike,
+          iconColor: tweet.isLiked ? const Color.fromARGB(255, 172, 26, 15) : Colors.grey,
+        ),
+        const Spacer(),
+        IconButton(
+          icon: Icon(
+            tweet.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+            color: tweet.isBookmarked ? const Color.fromARGB(255, 47, 27, 158) : Colors.grey,
+          ),
+          onPressed: onBookmark,
+        ),
+      ],
+    );
+  }
+}
+
+
+// CommentItem component for individual comments
+class CommentItem extends StatelessWidget {
+  final Comment comment;
+
+  const CommentItem({
+    Key? key,
+    required this.comment,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 32.0, top: 8.0),
+      child: Row(
+        children: [
+          const CircleAvatar(radius: 15, backgroundColor: Colors.grey),
+          const SizedBox(width: 8.0),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Text(
+                      comment.userLongName,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 5.0),
+                    Text(
+                      '@${comment.userShortName}',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                    const SizedBox(width: 5.0),
+                    Text(
+                      '· ${comment.timestamp.hour}:${comment.timestamp.minute}',
+                      style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    ),
+                  ],
+                ),
+                Text(comment.text),
+                if (comment.imageURL.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Image.network(
+                      comment.imageURL,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
 
 class TweetImage extends StatefulWidget 
 {
@@ -102,405 +340,56 @@ class TweetImage extends StatefulWidget
   _TweetImageState createState() => _TweetImageState();
 }
 
+// Updated TweetImage State class
 class _TweetImageState extends State<TweetImage> {
-  Future<void> addLike() async {
-    setState(() {
-      widget.tweet.isLiked = !widget.tweet.isLiked;
-      widget.tweet.numLikes += widget.tweet.isLiked ? 1 : -1;
-    });
-    await tweetsRef.doc(widget.tweet.id).update({
-      'isLiked': widget.tweet.isLiked,
-      'numLikes': widget.tweet.numLikes,
-    });
-  }
+  late TweetInteractionManager _interactions;
 
-  Future<void> addRetweet() async {
-    setState(() {
-      widget.tweet.isRetweeted = !widget.tweet.isRetweeted;
-      widget.tweet.numRetweets += widget.tweet.isRetweeted ? 1 : -1;
-    });
-    await tweetsRef.doc(widget.tweet.id).update({
-      'isRetweeted': widget.tweet.isRetweeted,
-      'numRetweets': widget.tweet.numRetweets,
-    });
-  }
-
-  Future<void> addComment(BuildContext context) async {
-    final reply = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const CreateComment(),
-      ),
-    );
-    
-    if (reply != null) {
-      reply.tweetId = widget.tweet.id;
-      final docRef = await commentsRef.add(reply.toMap());
-      reply.id = docRef.id;
-      
-      setState(() {
-        widget.tweet.comments.add(reply);
-        widget.tweet.numComments++;
-      });
-      
-      await tweetsRef.doc(widget.tweet.id).update({
-        'numComments': widget.tweet.numComments,
-      });
-    }
-  }
-
-  void hideTweetDialog(BuildContext context) 
-  {
-    showDialog(
-      context: context,
-      builder: (context) 
-      {
-        return AlertDialog(
-          title: const Text("Hide Tweet"),
-          content: const Text("Would You Like To Hide This Tweet?"),
-          actions: [
-            TextButton(
-              onPressed: () 
-              {
-                Navigator.of(context).pop();
-              },
-              child: const Text("Cancel"),
-            ),
-            TextButton(
-              onPressed: () 
-              {
-                widget.hideTweet();
-                Navigator.of(context).pop();
-              },
-              child: const Text("Hide"),
-            ),
-          ],
-        );
-      },
+  @override
+  void initState() {
+    super.initState();
+    _interactions = TweetInteractionManager(
+      tweet: widget.tweet,
+      setState: setState,
+      tweetsRef: tweetsRef,
+      commentsRef: commentsRef,
     );
   }
 
   @override
-  Widget build(BuildContext context) 
-  {
-    String timeString = '${widget.tweet.timestamp.hour}:${widget.tweet.timestamp.minute}';
-
+  Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const CircleAvatar(radius: 15, backgroundColor: Colors.grey),
-              const SizedBox(width: 8.0),
-              Expanded(
-                child: Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(2.0),
-                      child: Row(
-                        children: [
-                          Text(
-                            widget.tweet.userLongName, 
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(width: 5.0),
-                          Text(
-                            '@${widget.tweet.userShortName}', 
-                            style: const TextStyle(color: Colors.grey)),
-                          const SizedBox(width: 5.0),
-                          Text(
-                            '· $timeString', 
-                            style: const TextStyle(color: Colors.grey)),
-                          const Spacer(),
-                          IconButton(
-                            icon: const Icon(Icons.expand_more, size: 15, color: Colors.grey),
-                            onPressed: () => hideTweetDialog(context),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          TweetHeader(
+            tweet: widget.tweet,
+            onHideTweet: widget.hideTweet,
           ),
           Padding(
             padding: const EdgeInsets.only(top: 8.0),
             child: Text(widget.tweet.description),
           ),
-          Image.network(widget.tweet.imageURL, width: double.infinity, fit: BoxFit.fitWidth),
+          Image.network(
+            widget.tweet.imageURL,
+            width: double.infinity,
+            fit: BoxFit.fitWidth,
+          ),
           Padding(
             padding: const EdgeInsets.only(top: 8.0),
-            child: Row(
-              children: [
-                iconWithCount(Icons.chat_bubble_outline, widget.tweet.numComments, () => addComment(context)),
-                const SizedBox(width: 20),
-                iconWithCount(
-                  widget.tweet.isRetweeted ? Icons.repeat : Icons.repeat_outlined,
-                  widget.tweet.numRetweets,
-                  addRetweet,
-                  iconColor: widget.tweet.isRetweeted ? const Color.fromARGB(255, 25, 129, 28) : Colors.grey,
-                ),
-                const SizedBox(width: 20),
-                iconWithCount(
-                  widget.tweet.isLiked ? Icons.favorite : Icons.favorite_border,
-                  widget.tweet.numLikes,
-                  addLike,
-                  iconColor: widget.tweet.isLiked ? const Color.fromARGB(255, 172, 26, 15) : Colors.grey,
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: Icon(
-                    widget.tweet.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-                    color: widget.tweet.isBookmarked ? const Color.fromARGB(255, 47, 27, 158) : Colors.grey,
-                  ),
-                  onPressed: widget.bookmarkTweet,
-                ),
-              ],
+            child: TweetActions(
+              tweet: widget.tweet,
+              interactions: _interactions,
+              onBookmark: widget.bookmarkTweet,
             ),
           ),
-
-        for (var comment in widget.tweet.comments) 
-          Padding(
-            padding: const EdgeInsets.only(left: 32.0, top: 8.0),
-            child: Row(
-              children: [
-                const CircleAvatar(
-                  radius: 15,
-                  backgroundColor: Colors.grey,
-                ),
-                const SizedBox(width: 8.0),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          Text(
-                            comment.userLongName, 
-                            style: const TextStyle(fontWeight: FontWeight.bold)),
-                          const SizedBox(width: 5.0),
-                          Text(
-                            '@${comment.userShortName}', 
-                            style: const TextStyle(color: Colors.grey)),
-                          const SizedBox(width: 5.0),
-                          Text(
-                            '· ${comment.timestamp.hour}:${comment.timestamp.minute}', 
-                            style: const TextStyle(color: Colors.grey, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                      Text(comment.text),
-                    if (comment.imageURL.isNotEmpty)
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Image.network(
-                          comment.imageURL,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
+          CommentsList(comments: widget.tweet.comments),
         ],
       ),
     );
   }
-
-  Widget iconWithCount(IconData icon, int count, VoidCallback onPressed, {Color? iconColor}) 
-  {
-    return Row(
-      children: [
-        IconButton(
-          icon: Icon(icon, color: iconColor ?? Colors.grey),
-          onPressed: onPressed,
-        ),
-        Text(count.toString(), style: const TextStyle(fontSize: 11)),
-      ],
-    );
-  }
 }
 
-class TweetWidget extends StatefulWidget 
-{
-  const TweetWidget({super.key});
-
-  @override
-  _TweetWidgetState createState() => _TweetWidgetState();
-}
-
-class _TweetWidgetState extends State<TweetWidget> {
-  List<Tweet> tweets = [];
-  
-  @override
-  void initState() {
-    super.initState();
-    loadTweets();
-  }
-
-  // Load tweets from Firebase
-  Future<void> loadTweets() async {
-    final querySnapshot = await tweetsRef.orderBy('timestamp', descending: true).get();
-    setState(() {
-      tweets = querySnapshot.docs.map((doc) => Tweet.fromDocument(doc)).toList();
-      
-      // Load comments for each tweet
-      for (var tweet in tweets) {
-        loadComments(tweet);
-      }
-    });
-  }
-
-  // Load comments for a specific tweet
-  Future<void> loadComments(Tweet tweet) async {
-    final querySnapshot = await commentsRef
-        .where('tweetId', isEqualTo: tweet.id)
-        .orderBy('timestamp', descending: false)
-        .get();
-    
-    setState(() {
-      tweet.comments = querySnapshot.docs.map((doc) => Comment.fromDocument(doc)).toList();
-    });
-  }
-
-  // Add new tweet to Firebase
-  Future<void> newTweet(Tweet tweet) async {
-    final docRef = await tweetsRef.add(tweet.toMap());
-    tweet.id = docRef.id;
-    setState(() {
-      tweets.insert(0, tweet);
-    });
-  }
-    void favouriteTweet(Tweet tweet) 
-  {
-    setState(() 
-    {
-      tweet.isBookmarked = !tweet.isBookmarked;
-      tweets.sort((a, b) 
-      {
-        if (a.isBookmarked && !b.isBookmarked) return -1;
-        if (!a.isBookmarked && b.isBookmarked) return 1;
-        return 0;
-      });
-    });
-  }
-
-
-  // Update tweet in Firebase
-  Future<void> updateTweet(Tweet tweet) async {
-    if (tweet.id != null) {
-      await tweetsRef.doc(tweet.id).update(tweet.toMap());
-    }
-  }
-
-  // Remove tweet from Firebase
-  Future<void> removeTweet(int index) async {
-    final tweet = tweets[index];
-    if (tweet.id != null) {
-      await tweetsRef.doc(tweet.id).delete();
-      // Delete associated comments
-      final commentSnapshot = await commentsRef.where('tweetId', isEqualTo: tweet.id).get();
-      for (var doc in commentSnapshot.docs) {
-        await doc.reference.delete();
-      }
-    }
-    setState(() {
-      tweets.removeAt(index);
-    });
-  }
-
-
-  @override
-  Widget build(BuildContext context) 
-  {
-    return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          title: const Text('Twitter Demo'),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.add),
-              onPressed: () async 
-              {
-                final newTweet = await Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => CreateNewTweet()),
-                );
-                if (newTweet != null) 
-                {
-                  this.newTweet(newTweet);
-                }
-              },
-            ),
-          ],
-        ),
-        body: ListView.builder(
-          itemCount: tweets.length,
-          itemBuilder: (context, index) 
-          {
-            final tweet = tweets[index];
-            return TweetImage(
-              tweet: tweet,
-              bookmarkTweet: () => favouriteTweet(tweet),
-              hideTweet: () => removeTweet(index),
-            );
-          },
-        ),
-      ),
-    );
-  }
-}
-class Comment {
-  String? id; // Add ID field for Firebase
-  String userLongName;
-  String userShortName;
-  DateTime timestamp;
-  String text;
-  String imageURL;
-  String? tweetId; // Reference to parent tweet
-
-  Comment({
-    this.id,
-    required this.userLongName,
-    required this.userShortName,
-    required this.timestamp,
-    required this.text,
-    required this.imageURL,
-    this.tweetId,
-  });
-
-  // Convert Comment to Map for Firebase
-  Map<String, dynamic> toMap() {
-    return {
-      'userLongName': userLongName,
-      'userShortName': userShortName,
-      'timestamp': timestamp,
-      'text': text,
-      'imageURL': imageURL,
-      'tweetId': tweetId,
-    };
-  }
-
-  // Create Comment from Firebase document
-  static Comment fromDocument(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return Comment(
-      id: doc.id,
-      userLongName: data['userLongName'],
-      userShortName: data['userShortName'],
-      timestamp: (data['timestamp'] as Timestamp).toDate(),
-      text: data['text'],
-      imageURL: data['imageURL'],
-      tweetId: data['tweetId'],
-    );
-  }
-}
 
 class CreateNewTweet extends StatefulWidget 
 {
@@ -574,18 +463,9 @@ class _CreateNewTweetState extends State<CreateNewTweet>
   }
 }
 
-
-
-  // Convert Comment to Map for Firebase
-  
-
-// Modify _TweetWidgetState to use Firebase
-
 class CreateComment extends StatefulWidget 
 {
   const CreateComment({super.key});
-
-  
   @override
   _CreateCommentState createState() => _CreateCommentState();
 }
@@ -647,4 +527,58 @@ class _CreateCommentState extends State<CreateComment>
       ),
     );
   }
+}
+
+class AddUserButton extends StatelessWidget {
+  final FirebaseFirestore firestore = FirebaseFirestore.instance;
+
+  final longName = TextEditingController();
+  final shortName = TextEditingController();
+  final getemail = TextEditingController();
+  final getpassword = TextEditingController();
+  
+
+  // Method to add a new user to the Firestore database
+  Future<void> createUser() async {
+    
+    final newUser = Users(
+      userLongName: longName.text,
+      userShortName: shortName.text,
+      password: getpassword.text,
+      email: getemail.text, 
+      timestamp: DateTime.now(),
+    );
+
+    try {
+      await firestore.collection('users').add({
+        'userLongName': newUser.userLongName,
+        'userShortName': newUser.userShortName,
+        'password': newUser.password,
+        'email': newUser.email,
+        'timecreated': FieldValue.serverTimestamp(),
+      });
+      print("User added successfully!");
+    } catch (e) {
+      print("Failed to add user: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      onPressed: () {
+        // Call the createUser function with sample data
+        
+      },
+      child: Text('Add User'),
+    );
+  }
+}
+
+void signOut(BuildContext context) async {
+  await FirebaseAuth.instance.signOut();
+  Navigator.of(context).pushAndRemoveUntil(
+    MaterialPageRoute(builder: (context) => LoginPage()),
+    (route) => false,
+  );
 }
