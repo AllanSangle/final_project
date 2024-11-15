@@ -1,6 +1,7 @@
 
 import 'package:final_project/Comment.dart';
 import 'package:final_project/Tweet.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class TweetHeader extends StatelessWidget {
@@ -52,12 +53,12 @@ class TweetHeader extends StatelessWidget {
                 child: Row(
                   children: [
                     Text(
-                      tweet.userLongName,
+                      tweet.userName,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(width: 5.0),
                     Text(
-                      '@${tweet.userShortName}',
+                      '@${tweet.userEmail.split('@')[0]}',
                       style: const TextStyle(color: Colors.grey),
                     ),
                     const SizedBox(width: 5.0),
@@ -80,6 +81,7 @@ class TweetHeader extends StatelessWidget {
     );
   }
 }
+
 
 // TweetActions component for handling likes, retweets, etc.
 class TweetActions extends StatelessWidget {
@@ -271,42 +273,65 @@ class _TweetImageState extends State<TweetImage> {
 }
 
 
-class CreateNewTweet extends StatefulWidget 
-{
+class CreateNewTweet extends StatefulWidget {
   @override
   _CreateNewTweetState createState() => _CreateNewTweetState();
 }
 
-class _CreateNewTweetState extends State<CreateNewTweet> 
-{
-  final longName = TextEditingController();
-  final shortName = TextEditingController();
+class _CreateNewTweetState extends State<CreateNewTweet> {
   final description = TextEditingController();
   final imageUrl = TextEditingController();
 
-  void createTweet() 
-  {
-    final newTweet = Tweet(
-      userLongName: longName.text,
-      userShortName: shortName.text,
-      timestamp: DateTime.now(),
-      description: description.text,
-      imageURL: imageUrl.text,
-      numComments: 0,
-      numRetweets: 0,
-      numLikes: 0,
-      isBookmarked: false,
-      isLiked: false,
-      isRetweeted: false,
-      comments: [],
-    );
+  Future<void> createTweet() async {
+    final user = FirebaseAuth.instance.currentUser;
 
-    Navigator.of(context).pop(newTweet);
+    if (user != null) {
+      try {
+        final newTweet = Tweet(
+          userName: user.displayName ?? 'Anonymous',
+          userEmail: user.email ?? 'unknown@example.com',
+          userId: user.uid,
+          timestamp: DateTime.now(),
+          description: description.text,
+          imageURL: imageUrl.text.isNotEmpty ? imageUrl.text : '',
+          numComments: 0,
+          numRetweets: 0,
+          numLikes: 0,
+          isBookmarked: false,
+          isLiked: false,
+          isRetweeted: false,
+          comments: [],
+          likedBy: [],
+          retweetedBy: [],
+        );
+
+        // Create tweet first
+        final tweetDoc = await tweetsRef.add(newTweet.toMap());
+        newTweet.id = tweetDoc.id;
+
+        // Create user log after tweet is created
+        final userLog = UserLog(
+          userId: user.uid,
+          action: 'create',
+          timestamp: DateTime.now(),
+          tweetId: tweetDoc.id,
+        );
+        await userLogsRef.add(userLog.toMap());
+
+        Navigator.of(context).pop(newTweet);
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating tweet: ${e.toString()}')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: User not authenticated')),
+      );
+    }
   }
-
   @override
-  Widget build(BuildContext context) 
-  {
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create New Tweet'),
@@ -315,14 +340,6 @@ class _CreateNewTweetState extends State<CreateNewTweet>
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            TextField(
-              controller: longName,
-              decoration: const InputDecoration(hintText: 'Name'),
-            ),
-            TextField(
-              controller: shortName,
-              decoration: const InputDecoration(hintText: 'Username'),
-            ),
             TextField(
               controller: description,
               decoration: const InputDecoration(hintText: 'Description'),

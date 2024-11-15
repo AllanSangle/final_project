@@ -50,7 +50,7 @@ class _RegisterPageState extends State<RegisterPage> {
     });
 
     try {
-      // Check if username already exists
+  
       final usernameExists = await _checkIfUsernameExists(_usernameController.text);
       if (usernameExists) {
         setState(() {
@@ -60,27 +60,23 @@ class _RegisterPageState extends State<RegisterPage> {
         return;
       }
 
-      // Create user in Firebase Auth
       final userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
 
-      // Create user document in Firestore
+      
       await FirebaseFirestore.instance.collection('users').doc(userCredential.user!.uid).set({
         'userLongName': _fullNameController.text.trim(),
         'userShortName': _usernameController.text.trim(),
         'email': _emailController.text.trim(),
         'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
-        'profileImageUrl': '',  // Default empty profile image
-        'bio': '',  // Default empty bio
+        'profileImageUrl': '', 
+        'bio': '',  
       });
 
-      // Update display name in Firebase Auth
       await userCredential.user!.updateDisplayName(_fullNameController.text.trim());
-
-      // Navigate back to login page
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
@@ -137,7 +133,7 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
         ),
       ),
-      backgroundColor: const Color.fromARGB(255, 202, 195, 247),  // Background color
+      backgroundColor: const Color.fromARGB(255, 202, 195, 247),  
       body: Center(
         child: Padding(
           padding: EdgeInsets.all(16),

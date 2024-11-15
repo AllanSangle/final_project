@@ -2,13 +2,39 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:final_project/Comment.dart';
 import 'package:final_project/main.dart';
 import 'package:final_project/TweetPage.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 final tweetsRef = FirebaseFirestore.instance.collection('tweets');
+final userLogsRef = FirebaseFirestore.instance.collection('userLogs');
+
+class UserLog {
+  String tweetId;
+  final String userId;
+  final String action;
+  final DateTime timestamp;
+
+  UserLog({
+    required this.userId,
+    required this.action,
+    required this.timestamp,
+    required this.tweetId,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'userId': userId,
+      'action': action,
+      'timestamp': Timestamp.fromDate(timestamp),
+      'tweetId': tweetId,
+    };
+  }
+}
 class Tweet {
-  String? id; // Add ID field for Firebase
-  final String userLongName;
-  final String userShortName;
+  String? id;
+  final String userName;
+  final String userEmail;
+  final String userId;
   final DateTime timestamp;
   final String description;
   final String imageURL;
@@ -19,11 +45,14 @@ class Tweet {
   bool isLiked;
   bool isRetweeted;
   List<Comment> comments;
+  List<String> likedBy;
+  List<String> retweetedBy;
 
   Tweet({
     this.id,
-    required this.userLongName,
-    required this.userShortName,
+    required this.userName,
+    required this.userEmail,
+    required this.userId,
     required this.timestamp,
     required this.description,
     required this.imageURL,
@@ -34,13 +63,15 @@ class Tweet {
     this.isLiked = false,
     this.isRetweeted = false,
     this.comments = const [],
+    this.likedBy = const [],
+    this.retweetedBy = const [],
   });
 
-  // Convert Tweet to Map for Firebase
   Map<String, dynamic> toMap() {
     return {
-      'userLongName': userLongName,
-      'userShortName': userShortName,
+      'userName': userName,
+      'userEmail': userEmail,
+      'userId': userId,
       'timestamp': Timestamp.fromDate(timestamp),
       'description': description,
       'imageURL': imageURL,
@@ -50,25 +81,29 @@ class Tweet {
       'isBookmarked': isBookmarked,
       'isLiked': isLiked,
       'isRetweeted': isRetweeted,
+      'likedBy': likedBy,
+      'retweetedBy': retweetedBy,
     };
   }
 
-  // Create Tweet from Firebase document
   static Tweet fromDocument(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     return Tweet(
       id: doc.id,
-      userLongName: data['userLongName'],
-      userShortName: data['userShortName'],
-      timestamp: (data['timestamp'] as Timestamp).toDate(),
-      description: data['description'],
-      imageURL: data['imageURL'],
-      numComments: data['numComments'],
-      numRetweets: data['numRetweets'],
-      numLikes: data['numLikes'],
-      isBookmarked: data['isBookmarked'],
-      isLiked: data['isLiked'],
-      isRetweeted: data['isRetweeted'],
+      userName: data['userName'] ?? 'Anonymous',
+      userEmail: data['userEmail'] ?? 'unknown@example.com',
+      userId: data['userId'] ?? '',
+      timestamp: (data['timestamp'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      description: data['description'] ?? '',
+      imageURL: data['imageURL'] ?? '',
+      numComments: data['numComments'] ?? 0,
+      numRetweets: data['numRetweets'] ?? 0,
+      numLikes: data['numLikes'] ?? 0,
+      isBookmarked: data['isBookmarked'] ?? false,
+      isLiked: data['isLiked'] ?? false,
+      isRetweeted: data['isRetweeted'] ?? false,
+      likedBy: List<String>.from(data['likedBy'] ?? []),
+      retweetedBy: List<String>.from(data['retweetedBy'] ?? []),
     );
   }
 }
@@ -86,26 +121,61 @@ class TweetInteractionManager {
     required this.commentsRef,
   });
 
+  Future<void> _logUserAction(String action) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && tweet.id != null) {
+      final userLog = UserLog(
+        userId: user.uid,
+        action: action,
+        timestamp: DateTime.now(),
+        tweetId: tweet.id!,
+      );
+      await userLogsRef.add(userLog.toMap());
+    }
+  }
+
   Future<void> addLike() async {
-    setState(() {
-      tweet.isLiked = !tweet.isLiked;
-      tweet.numLikes += tweet.isLiked ? 1 : -1;
-    });
-    await tweetsRef.doc(tweet.id).update({
-      'isLiked': tweet.isLiked,
-      'numLikes': tweet.numLikes,
-    });
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && tweet.id != null) {
+      setState(() {
+        tweet.isLiked = !tweet.isLiked;
+        if (tweet.isLiked) {
+          tweet.likedBy.add(user.uid);
+          tweet.numLikes++;
+        } else {
+          tweet.likedBy.remove(user.uid);
+          tweet.numLikes--;
+        }
+      });
+      await tweetsRef.doc(tweet.id).update({
+        'isLiked': tweet.isLiked,
+        'numLikes': tweet.numLikes,
+        'likedBy': tweet.likedBy,
+      });
+      await _logUserAction('like');
+    }
   }
 
   Future<void> addRetweet() async {
-    setState(() {
-      tweet.isRetweeted = !tweet.isRetweeted;
-      tweet.numRetweets += tweet.isRetweeted ? 1 : -1;
-    });
-    await tweetsRef.doc(tweet.id).update({
-      'isRetweeted': tweet.isRetweeted,
-      'numRetweets': tweet.numRetweets,
-    });
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && tweet.id != null) {
+      setState(() {
+        tweet.isRetweeted = !tweet.isRetweeted;
+        if (tweet.isRetweeted) {
+          tweet.retweetedBy.add(user.uid);
+          tweet.numRetweets++;
+        } else {
+          tweet.retweetedBy.remove(user.uid);
+          tweet.numRetweets--;
+        }
+      });
+      await tweetsRef.doc(tweet.id).update({
+        'isRetweeted': tweet.isRetweeted,
+        'numRetweets': tweet.numRetweets,
+        'retweetedBy': tweet.retweetedBy,
+      });
+      await _logUserAction('retweet');
+    }
   }
 
   Future<void> addComment(BuildContext context) async {
@@ -116,7 +186,7 @@ class TweetInteractionManager {
       ),
     );
     
-    if (reply != null) {
+    if (reply != null && tweet.id != null) {
       reply.tweetId = tweet.id;
       final docRef = await commentsRef.add(reply.toMap());
       reply.id = docRef.id;
@@ -129,6 +199,8 @@ class TweetInteractionManager {
       await tweetsRef.doc(tweet.id).update({
         'numComments': tweet.numComments,
       });
+      
+      await _logUserAction('comment');
     }
   }
 }
@@ -150,20 +222,38 @@ class _TweetWidgetState extends State<TweetWidget> {
     loadTweets();
   }
 
-  // Load tweets from Firebase
-  Future<void> loadTweets() async {
+ Future<void> loadTweets() async {
+  try {
     final querySnapshot = await tweetsRef.orderBy('timestamp', descending: true).get();
-    setState(() {
-      tweets = querySnapshot.docs.map((doc) => Tweet.fromDocument(doc)).toList();
-      
-      // Load comments for each tweet
-      for (var tweet in tweets) {
-        loadComments(tweet);
-      }
-    });
-  }
 
-  // Load comments for a specific tweet
+    // Parse tweets and handle possible null/malformed documents
+    List<Tweet> loadedTweets = querySnapshot.docs
+        .map((doc) {
+          try {
+            return Tweet.fromDocument(doc);
+          } catch (e) {
+            print("Error parsing tweet: $e");
+            return null; // Skip malformed tweet
+          }
+        })
+        .where((tweet) => tweet != null) // Filter out null tweets
+        .toList()
+        .cast<Tweet>();
+
+    // Load comments for each valid tweet
+    for (var tweet in loadedTweets) {
+      await loadComments(tweet); // Wait for each comment load to complete
+    }
+
+    // Update state with the loaded tweets
+    setState(() {
+      tweets = loadedTweets;
+    });
+  } catch (e) {
+    print("Error loading tweets: $e");
+  }
+}
+
   Future<void> loadComments(Tweet tweet) async {
     final querySnapshot = await commentsRef
         .where('tweetId', isEqualTo: tweet.id)
@@ -175,7 +265,6 @@ class _TweetWidgetState extends State<TweetWidget> {
     });
   }
 
-  // Add new tweet to Firebase
   Future<void> newTweet(Tweet tweet) async {
     final docRef = await tweetsRef.add(tweet.toMap());
     tweet.id = docRef.id;
@@ -197,20 +286,16 @@ class _TweetWidgetState extends State<TweetWidget> {
     });
   }
 
-
-  // Update tweet in Firebase
   Future<void> updateTweet(Tweet tweet) async {
     if (tweet.id != null) {
       await tweetsRef.doc(tweet.id).update(tweet.toMap());
     }
   }
 
-  // Remove tweet from Firebase
   Future<void> removeTweet(int index) async {
     final tweet = tweets[index];
     if (tweet.id != null) {
       await tweetsRef.doc(tweet.id).delete();
-      // Delete associated comments
       final commentSnapshot = await commentsRef.where('tweetId', isEqualTo: tweet.id).get();
       for (var doc in commentSnapshot.docs) {
         await doc.reference.delete();
