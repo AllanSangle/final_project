@@ -26,7 +26,7 @@ class Comment {
     return {
       'userLongName': userLongName,
       'userShortName': userShortName,
-      'timestamp': Timestamp.fromDate(timestamp),  // Fix: Convert DateTime to Timestamp
+      'timestamp': Timestamp.fromDate(timestamp),  
       'text': text,
       'imageURL': imageURL,
       'tweetId': tweetId,
@@ -37,7 +37,7 @@ class Comment {
     final data = doc.data() as Map<String, dynamic>;
     return Comment(
       id: doc.id,
-      userLongName: data['userLongName'] ?? '',  // Add null safety
+      userLongName: data['userLongName'] ?? '',  
       userShortName: data['userShortName'] ?? '',
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       text: data['text'] ?? '',

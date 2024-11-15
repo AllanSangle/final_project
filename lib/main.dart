@@ -1,6 +1,7 @@
 import 'package:final_project/RegisterAccount.dart';
 import 'package:final_project/Tweet.dart';
-import 'package:final_project/Users.dart';
+import 'package:final_project/notification.dart';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -10,6 +11,7 @@ import 'package:final_project/firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await NotificationService.initialize();
   runApp(MaterialApp(home: LoginPage()));
 }
 
@@ -50,7 +52,6 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text,
       );
 
-      // Navigate directly to the TweetWidget if using navigation logic here
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => TweetWidget()),
@@ -186,29 +187,6 @@ class AddUserButton extends StatelessWidget {
   final shortName = TextEditingController();
   final getemail = TextEditingController();
   final getpassword = TextEditingController();
-
-  Future<void> createUser() async {
-    final newUser = Users(
-      userLongName: longName.text,
-      userShortName: shortName.text,
-      password: getpassword.text,
-      email: getemail.text,
-      timestamp: DateTime.now(),
-    );
-
-    try {
-      await firestore.collection('users').add({
-        'userLongName': newUser.userLongName,
-        'userShortName': newUser.userShortName,
-        'password': newUser.password,
-        'email': newUser.email,
-        'timecreated': FieldValue.serverTimestamp(),
-      });
-      print("User added successfully!");
-    } catch (e) {
-      print("Failed to add user: $e");
-    }
-  }
 
   @override
   Widget build(BuildContext context) {

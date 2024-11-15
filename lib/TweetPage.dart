@@ -1,6 +1,11 @@
 
+import 'dart:async';
+
 import 'package:final_project/Comment.dart';
+import 'package:final_project/Draft.dart';
 import 'package:final_project/Tweet.dart';
+import 'package:final_project/notification.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 class TweetHeader extends StatelessWidget {
@@ -52,12 +57,12 @@ class TweetHeader extends StatelessWidget {
                 child: Row(
                   children: [
                     Text(
-                      tweet.userLongName,
+                      tweet.userName,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(width: 5.0),
                     Text(
-                      '@${tweet.userShortName}',
+                      '@${tweet.userEmail.split('@')[0]}',
                       style: const TextStyle(color: Colors.grey),
                     ),
                     const SizedBox(width: 5.0),
@@ -80,6 +85,7 @@ class TweetHeader extends StatelessWidget {
     );
   }
 }
+
 
 // TweetActions component for handling likes, retweets, etc.
 class TweetActions extends StatelessWidget {
@@ -271,42 +277,87 @@ class _TweetImageState extends State<TweetImage> {
 }
 
 
-class CreateNewTweet extends StatefulWidget 
-{
+class CreateNewTweet extends StatefulWidget {
   @override
   _CreateNewTweetState createState() => _CreateNewTweetState();
 }
 
-class _CreateNewTweetState extends State<CreateNewTweet> 
-{
-  final longName = TextEditingController();
-  final shortName = TextEditingController();
+class _CreateNewTweetState extends State<CreateNewTweet> {
   final description = TextEditingController();
   final imageUrl = TextEditingController();
+  Timer? _inactivityTimer;
 
-  void createTweet() 
-  {
-    final newTweet = Tweet(
-      userLongName: longName.text,
-      userShortName: shortName.text,
-      timestamp: DateTime.now(),
+  // Reset inactivity timer
+  void resetInactivityTimer() {
+    if (_inactivityTimer?.isActive ?? false) {
+      _inactivityTimer?.cancel();
+    }
+    _inactivityTimer = Timer(const Duration(seconds: 20), _triggerPushNotification);
+  }
+
+  // Trigger push notification after inactivity
+  void _triggerPushNotification() {
+    NotificationService.showNotification();
+  }
+
+  // Save draft tweet
+  Future<void> draftTweet() async {
+    final newDraft = Draft(
       description: description.text,
-      imageURL: imageUrl.text,
-      numComments: 0,
-      numRetweets: 0,
-      numLikes: 0,
-      isBookmarked: false,
-      isLiked: false,
-      isRetweeted: false,
-      comments: [],
+      imageURL: imageUrl.text.isNotEmpty ? imageUrl.text : '',
     );
+    await DraftsDatabase.instance.insertDraft(newDraft);
 
-    Navigator.of(context).pop(newTweet);
+    resetInactivityTimer(); // Reset the timer after saving a draft
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Tweet saved as draft')),
+    );
+  }
+
+  // Create tweet
+  Future<void> createTweet() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final newTweet = Tweet(
+          userName: user.displayName ?? 'Anonymous',
+          userEmail: user.email ?? 'unknown@example.com',
+          userId: user.uid,
+          timestamp: DateTime.now(),
+          description: description.text,
+          imageURL: imageUrl.text.isNotEmpty ? imageUrl.text : '',
+          numComments: 0,
+          numRetweets: 0,
+          numLikes: 0,
+          isBookmarked: false,
+          isLiked: false,
+          isRetweeted: false,
+          comments: [],
+          likedBy: [],
+          retweetedBy: [],
+        );
+        Navigator.of(context).pop(newTweet);
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating tweet: ${e.toString()}')),
+        );
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: User not authenticated')),
+      );
+    }
   }
 
   @override
-  Widget build(BuildContext context) 
-  {
+  void dispose() {
+    _inactivityTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Create New Tweet'),
@@ -316,25 +367,39 @@ class _CreateNewTweetState extends State<CreateNewTweet>
         child: Column(
           children: [
             TextField(
-              controller: longName,
-              decoration: const InputDecoration(hintText: 'Name'),
-            ),
-            TextField(
-              controller: shortName,
-              decoration: const InputDecoration(hintText: 'Username'),
-            ),
-            TextField(
               controller: description,
               decoration: const InputDecoration(hintText: 'Description'),
+              onChanged: (_) => resetInactivityTimer(), // Reset timer on change
             ),
             TextField(
               controller: imageUrl,
               decoration: const InputDecoration(hintText: 'Image URL (optional)'),
+              onChanged: (_) => resetInactivityTimer(), // Reset timer on change
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                ElevatedButton(
+                  onPressed: createTweet,
+                  child: const Text('Create Tweet'),
+                ),
+                ElevatedButton(
+                  onPressed: draftTweet,
+                  child: const Text('Draft Tweet'),
+                ),
+              ],
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: createTweet,
-              child: const Text('Create Tweet'),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => DraftsScreen()),
+                );
+                resetInactivityTimer(); // Reset timer on viewing drafts
+              },
+              child: const Text('View Previous Drafts'),
             ),
           ],
         ),
@@ -342,4 +407,3 @@ class _CreateNewTweetState extends State<CreateNewTweet>
     );
   }
 }
-

@@ -31,6 +31,9 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <meta-data
+            android:name="com.droidtech.flutter.notifications.ICON"
+            android:resource="@drawable/app_icon" />
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and
@@ -43,4 +46,5 @@
             <data android:mimeType="text/plain"/>
         </intent>
     </queries>
+<uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
 </manifest>
