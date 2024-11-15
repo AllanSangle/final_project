@@ -10,7 +10,7 @@ import 'package:final_project/firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(MaterialApp(home: LoginPage()));
+  runApp(MaterialApp(home: AuthChecker()));
 }
 
 class AuthChecker extends StatelessWidget {
@@ -41,20 +41,27 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
+
   Future<void> _login() async {
-    if (_formKey.currentState!.validate()) {
-      try {
-        await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: _emailController.text,
-          password: _passwordController.text,
-        );
-      } on FirebaseAuthException catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? 'Login error')),
-        );
-      }
+  if (_formKey.currentState!.validate()) {
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text,
+        password: _passwordController.text,
+      );
+
+      // Navigate directly to the TweetWidget if using navigation logic here
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => TweetWidget()),
+      );
+    } on FirebaseAuthException catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.message ?? 'Login error')),
+      );
     }
   }
+}
 
   @override
   Widget build(BuildContext context) {
