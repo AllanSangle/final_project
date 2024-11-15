@@ -1,8 +1,4 @@
-
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/material.dart';
-import 'dart:math';
 
 class Users {
   final String? id;  // Changed to String to match Firestore ID

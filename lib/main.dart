@@ -1,5 +1,5 @@
 import 'package:final_project/RegisterAccount.dart';
-import 'package:final_project/Server.dart';
+import 'package:final_project/Tweet.dart';
 import 'package:final_project/Users.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +10,7 @@ import 'package:final_project/firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  runApp(MaterialApp(home: AuthChecker()));
+  runApp(MaterialApp(home: LoginPage()));
 }
 
 class AuthChecker extends StatelessWidget {

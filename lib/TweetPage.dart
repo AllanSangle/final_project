@@ -1,7 +1,7 @@
+
 import 'package:final_project/Comment.dart';
-import 'package:final_project/Server.dart';
+import 'package:final_project/Tweet.dart';
 import 'package:flutter/material.dart';
-import 'Tweet.dart';
 
 class TweetHeader extends StatelessWidget {
   final Tweet tweet;
@@ -343,68 +343,3 @@ class _CreateNewTweetState extends State<CreateNewTweet>
   }
 }
 
-class CreateComment extends StatefulWidget 
-{
-  const CreateComment({super.key});
-  @override
-  _CreateCommentState createState() => _CreateCommentState();
-}
-
-class _CreateCommentState extends State<CreateComment> 
-{
-  final userLongName = TextEditingController();
-  final userShortName = TextEditingController();
-  final text = TextEditingController();
-  final imageURL = TextEditingController();
-
-  void submitComment() 
-  {
-    final newComment = Comment(
-      userLongName: userLongName.text,
-      userShortName: userShortName.text,
-      timestamp: DateTime.now(),
-      text: text.text,
-      imageURL: imageURL.text,
-    );
-
-    Navigator.pop(context, newComment);
-  }
-
-  @override
-  Widget build(BuildContext context) 
-  {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Create A Comment"),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: userLongName,
-              decoration: const InputDecoration(hintText: 'Name'),
-            ),
-            TextField(
-              controller: userShortName,
-              decoration: const InputDecoration(hintText: 'Username'),
-            ),
-            TextField(
-              controller: text,
-              decoration: const InputDecoration(hintText: "Add Reply..."),
-            ),
-            TextField(
-              controller: imageURL, 
-              decoration: const InputDecoration(hintText: "Image URL (optional)"),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: submitComment,
-              child: const Text("Comment"),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
