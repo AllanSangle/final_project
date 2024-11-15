@@ -4,9 +4,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:final_project/Comment.dart';
 import 'package:final_project/Tweet.dart';
 import 'package:final_project/main.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:final_project/TweetPage.dart';
 
 final tweetsRef = FirebaseFirestore.instance.collection('tweets');
 final commentsRef = FirebaseFirestore.instance.collection('comments');
