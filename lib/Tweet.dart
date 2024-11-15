@@ -6,30 +6,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 final tweetsRef = FirebaseFirestore.instance.collection('tweets');
-final userLogsRef = FirebaseFirestore.instance.collection('userLogs');
 
-class UserLog {
-  String tweetId;
-  final String userId;
-  final String action;
-  final DateTime timestamp;
-
-  UserLog({
-    required this.userId,
-    required this.action,
-    required this.timestamp,
-    required this.tweetId,
-  });
-
-  Map<String, dynamic> toMap() {
-    return {
-      'userId': userId,
-      'action': action,
-      'timestamp': Timestamp.fromDate(timestamp),
-      'tweetId': tweetId,
-    };
-  }
-}
 class Tweet {
   String? id;
   final String userName;
@@ -121,18 +98,6 @@ class TweetInteractionManager {
     required this.commentsRef,
   });
 
-  Future<void> _logUserAction(String action) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user != null && tweet.id != null) {
-      final userLog = UserLog(
-        userId: user.uid,
-        action: action,
-        timestamp: DateTime.now(),
-        tweetId: tweet.id!,
-      );
-      await userLogsRef.add(userLog.toMap());
-    }
-  }
 
   Future<void> addLike() async {
     final user = FirebaseAuth.instance.currentUser;
@@ -152,7 +117,7 @@ class TweetInteractionManager {
         'numLikes': tweet.numLikes,
         'likedBy': tweet.likedBy,
       });
-      await _logUserAction('like');
+      
     }
   }
 
@@ -174,7 +139,7 @@ class TweetInteractionManager {
         'numRetweets': tweet.numRetweets,
         'retweetedBy': tweet.retweetedBy,
       });
-      await _logUserAction('retweet');
+      
     }
   }
 
@@ -200,7 +165,7 @@ class TweetInteractionManager {
         'numComments': tweet.numComments,
       });
       
-      await _logUserAction('comment');
+      
     }
   }
 }
@@ -312,7 +277,7 @@ class _TweetWidgetState extends State<TweetWidget> {
 Widget build(BuildContext context) {
   return Scaffold(
     appBar: AppBar(
-      title: const Text('Twitter Demo'),
+      title: const Text('Blog Demo alpha-V.1'),
       actions: [
         IconButton(
           icon: const Icon(Icons.logout),

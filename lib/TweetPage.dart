@@ -1,5 +1,6 @@
 
 import 'package:final_project/Comment.dart';
+import 'package:final_project/Draft.dart';
 import 'package:final_project/Tweet.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -282,6 +283,19 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
   final description = TextEditingController();
   final imageUrl = TextEditingController();
 
+  Future<void> draftTweet() async {
+    final newDraft = Draft(
+      description: description.text,
+      imageURL: imageUrl.text.isNotEmpty ? imageUrl.text : '',
+    );
+
+    await DraftsDatabase.instance.insertDraft(newDraft);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Tweet saved as draft')),
+    );
+  }
+
   Future<void> createTweet() async {
     final user = FirebaseAuth.instance.currentUser;
 
@@ -305,19 +319,6 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
           retweetedBy: [],
         );
 
-        // Create tweet first
-        final tweetDoc = await tweetsRef.add(newTweet.toMap());
-        newTweet.id = tweetDoc.id;
-
-        // Create user log after tweet is created
-        final userLog = UserLog(
-          userId: user.uid,
-          action: 'create',
-          timestamp: DateTime.now(),
-          tweetId: tweetDoc.id,
-        );
-        await userLogsRef.add(userLog.toMap());
-
         Navigator.of(context).pop(newTweet);
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -330,6 +331,7 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
       );
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -349,9 +351,28 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
               decoration: const InputDecoration(hintText: 'Image URL (optional)'),
             ),
             const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                ElevatedButton(
+                  onPressed: createTweet,
+                  child: const Text('Create Tweet'),
+                ),
+                ElevatedButton(
+                  onPressed: draftTweet,
+                  child: const Text('Draft Tweet'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: createTweet,
-              child: const Text('Create Tweet'),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => DraftsScreen()),
+                );
+              },
+              child: const Text('View Previous Drafts'),
             ),
           ],
         ),
@@ -359,4 +380,3 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
     );
   }
 }
-
