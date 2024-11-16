@@ -4,6 +4,10 @@ import 'package:final_project/main.dart';
 import 'package:final_project/TweetPage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:async';
+import 'dart:convert';
+
 
 final tweetsRef = FirebaseFirestore.instance.collection('tweets');
 
@@ -58,6 +62,47 @@ class Tweet {
       'isBookmarked': isBookmarked,
       'isLiked': isLiked,
       'isRetweeted': isRetweeted,
+      'likedBy': likedBy,
+      'retweetedBy': retweetedBy,
+    };
+    
+  }
+    factory Tweet.fromJson(Map<String, dynamic> json) {
+    return Tweet(
+      id: json['id'],
+      userName: json['userName'],
+      userEmail: json['userEmail'],
+      userId: json['userId'],
+      timestamp: DateTime.parse(json['timestamp']), // Assuming timestamp is a string
+      description: json['description'],
+      imageURL: json['imageURL'],
+      numComments: json['numComments'] ?? 0,
+      numRetweets: json['numRetweets'] ?? 0,
+      numLikes: json['numLikes'] ?? 0,
+      isBookmarked: json['isBookmarked'] ?? false,
+      isLiked: json['isLiked'] ?? false,
+      isRetweeted: json['isRetweeted'] ?? false,
+    
+      likedBy: List<String>.from(json['likedBy'] ?? []),
+      retweetedBy: List<String>.from(json['retweetedBy'] ?? []),
+    );
+  }
+    Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'userName': userName,
+      'userEmail': userEmail,
+      'userId': userId,
+      'timestamp': timestamp.toIso8601String(),
+      'description': description,
+      'imageURL': imageURL,
+      'numComments': numComments,
+      'numRetweets': numRetweets,
+      'numLikes': numLikes,
+      'isBookmarked': isBookmarked,
+      'isLiked': isLiked,
+      'isRetweeted': isRetweeted,
+      'comments': comments,
       'likedBy': likedBy,
       'retweetedBy': retweetedBy,
     };
@@ -180,6 +225,9 @@ class TweetWidget extends StatefulWidget
 
 class _TweetWidgetState extends State<TweetWidget> {
   List<Tweet> tweets = [];
+  List<Tweet> filteredTweets = [];
+  TextEditingController searchController = TextEditingController();
+
   
   @override
   void initState() {
@@ -270,21 +318,40 @@ class _TweetWidgetState extends State<TweetWidget> {
       tweets.removeAt(index);
     });
   }
+   void _filterTweets() {
+    String query = searchController.text.toLowerCase();
+    setState(() {
+      filteredTweets = tweets
+          .where((tweet) => tweet.description.toLowerCase().contains(query)) // Filter based on tweet content
+          .toList();
+    });
+  }
 
 
-  @override
-@override
+ @override
 Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      title: const Text('Blog Demo alpha-V.1'),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.logout),
-          onPressed: () => signOut(context),
-        ),
-      ],
-    ),
+   return Scaffold(
+      appBar: AppBar(
+        title: const Text('Blog Demo alpha-V.1'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: () {
+              // Navigate to the search page when the search button is tapped
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SearchPage(tweets: tweets),
+                ),
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => signOut(context),
+          ),
+        ],
+      ),
     body: StreamBuilder<QuerySnapshot>(
       stream: tweetsRef.orderBy('timestamp', descending: true).snapshots(),
       builder: (context, snapshot) {
@@ -325,4 +392,113 @@ Widget build(BuildContext context) {
     ),
   );
 }
+}
+
+class SearchPage extends StatefulWidget {
+  final List<Tweet> tweets;
+
+  const SearchPage({Key? key, required this.tweets}) : super(key: key);
+
+  @override
+  _SearchPageState createState() => _SearchPageState();
+}
+
+class _SearchPageState extends State<SearchPage> {
+  TextEditingController searchController = TextEditingController();
+  List<Tweet> filteredTweets = [];
+  bool isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    filteredTweets = widget.tweets;
+    searchController.addListener(_filterTweets);
+  }
+
+  @override
+  void dispose() {
+    searchController.removeListener(_filterTweets);
+    searchController.dispose();
+    super.dispose();
+  }
+
+  void _filterTweets() {
+    String query = searchController.text.toLowerCase();
+    if (query.isNotEmpty) {
+      _fetchUserTweets(query);
+    } else {
+      setState(() {
+        filteredTweets = widget.tweets;
+      });
+    }
+  }
+
+  Future<void> _fetchUserTweets(String username) async {
+    setState(() {
+      isLoading = true;
+    });
+
+    final url = 'https://api.example.com/tweets?username=$username'; // Replace with your API endpoint
+
+    try {
+      final response = await http.get(Uri.parse(url));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> tweetList = json.decode(response.body);
+        setState(() {
+          filteredTweets = tweetList
+              .map((tweetData) => Tweet.fromJson(tweetData))
+              .toList();
+        });
+      } else {
+        // Handle error
+        print('Failed to load tweets');
+      }
+    } catch (e) {
+      print('Error fetching tweets: $e');
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Search Tweets'),
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextField(
+              controller: searchController,
+              decoration: InputDecoration(
+                labelText: 'Search by username...',
+                border: OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.search),
+              ),
+            ),
+          ),
+          if (isLoading)
+            const Center(child: CircularProgressIndicator()),
+          Expanded(
+            child: ListView.builder(
+              itemCount: filteredTweets.length,
+              itemBuilder: (context, index) {
+                final tweet = filteredTweets[index];
+                return TweetImage(
+                  tweet: tweet,
+                  bookmarkTweet: () => print("Bookmark tweet"),
+                  hideTweet: () => print("Hide tweet"),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

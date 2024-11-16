@@ -4,9 +4,11 @@ import 'dart:async';
 import 'package:final_project/Comment.dart';
 import 'package:final_project/Draft.dart';
 import 'package:final_project/Tweet.dart';
-import 'package:final_project/notification.dart';
+import 'package:final_project/Notification.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+import 'package:http/http.dart' as http;
 
 class TweetHeader extends StatelessWidget {
   final Tweet tweet;
@@ -287,12 +289,12 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
   final imageUrl = TextEditingController();
   Timer? _inactivityTimer;
 
-  // Reset inactivity timer
-  void resetInactivityTimer() {
-    if (_inactivityTimer?.isActive ?? false) {
-      _inactivityTimer?.cancel();
-    }
-    _inactivityTimer = Timer(const Duration(seconds: 20), _triggerPushNotification);
+  
+   void resetInactivityTimer() {
+    // Cancel any existing timer
+    _inactivityTimer?.cancel();
+    
+    _inactivityTimer = Timer(const Duration(minutes: 10), () => _triggerPushNotification());
   }
 
   // Trigger push notification after inactivity
@@ -302,13 +304,13 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
 
   // Save draft tweet
   Future<void> draftTweet() async {
+    resetInactivityTimer();
     final newDraft = Draft(
       description: description.text,
       imageURL: imageUrl.text.isNotEmpty ? imageUrl.text : '',
     );
     await DraftsDatabase.instance.insertDraft(newDraft);
 
-    resetInactivityTimer(); // Reset the timer after saving a draft
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Tweet saved as draft')),
@@ -357,6 +359,7 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
   }
 
   @override
+  
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -407,3 +410,4 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
     );
   }
 }
+
