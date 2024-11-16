@@ -4,11 +4,9 @@ import 'dart:async';
 import 'package:final_project/Comment.dart';
 import 'package:final_project/Draft.dart';
 import 'package:final_project/Tweet.dart';
-import 'package:final_project/Notification.dart';
+import 'package:final_project/notification.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
-import 'package:http/http.dart' as http;
 
 class TweetHeader extends StatelessWidget {
   final Tweet tweet;
@@ -116,36 +114,39 @@ class TweetActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _iconWithCount(
-          Icons.chat_bubble_outline,
-          tweet.numComments,
-          () => interactions.addComment(context),
-        ),
-        const SizedBox(width: 20),
-        _iconWithCount(
-          tweet.isRetweeted ? Icons.repeat : Icons.repeat_outlined,
-          tweet.numRetweets,
-          interactions.addRetweet,
-          iconColor: tweet.isRetweeted ? const Color.fromARGB(255, 25, 129, 28) : Colors.grey,
-        ),
-        const SizedBox(width: 20),
-        _iconWithCount(
-          tweet.isLiked ? Icons.favorite : Icons.favorite_border,
-          tweet.numLikes,
-          interactions.addLike,
-          iconColor: tweet.isLiked ? const Color.fromARGB(255, 172, 26, 15) : Colors.grey,
-        ),
-        const Spacer(),
-        IconButton(
-          icon: Icon(
-            tweet.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-            color: tweet.isBookmarked ? const Color.fromARGB(255, 47, 27, 158) : Colors.grey,
+    return Padding(
+      padding: const EdgeInsets.only(left: 32.0), 
+      child: Row(
+        children: [
+          _iconWithCount(
+            Icons.chat_bubble_outline,
+            tweet.numComments,
+            () => interactions.addComment(context),
           ),
-          onPressed: onBookmark,
-        ),
-      ],
+          const SizedBox(width: 20),
+          _iconWithCount(
+            tweet.isRetweeted ? Icons.repeat : Icons.repeat_outlined,
+            tweet.numRetweets,
+            interactions.addRetweet,
+            iconColor: tweet.isRetweeted ? const Color.fromARGB(255, 25, 129, 28) : Colors.grey,
+          ),
+          const SizedBox(width: 20),
+          _iconWithCount(
+            tweet.isLiked ? Icons.favorite : Icons.favorite_border,
+            tweet.numLikes,
+            interactions.addLike,
+            iconColor: tweet.isLiked ? const Color.fromARGB(255, 172, 26, 15) : Colors.grey,
+          ),
+          const Spacer(),
+          IconButton(
+            icon: Icon(
+              tweet.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+              color: tweet.isBookmarked ? const Color.fromARGB(255, 47, 27, 158) : Colors.grey,
+            ),
+            onPressed: onBookmark,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -210,15 +211,53 @@ class CommentItem extends StatelessWidget {
   }
 }
 
-class TweetImage extends StatefulWidget 
-{
+class TweetDescriptionAndImage extends StatelessWidget {
+  final String description;
+  final String imageURL;
+
+  const TweetDescriptionAndImage({
+    Key? key,
+    required this.description,
+    required this.imageURL,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 40.0),  // Shift to the right by 16 pixels
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,  // Keep the text left-aligned
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1.0),
+            child: Text(description),
+          ),
+          if (imageURL.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12.0), // Radius of 12
+                child: Image.network(
+                  imageURL,
+                  width: 200.0,  // Set a width for the image
+                  height: 200.0, // Set a height if needed
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class TweetImage extends StatefulWidget {
   final Tweet tweet;
   final Function() bookmarkTweet;
   final Function() hideTweet;
 
-  const TweetImage
-  ({
-    Key key = const Key(""), 
+  const TweetImage({
+    Key? key,
     required this.tweet,
     required this.bookmarkTweet,
     required this.hideTweet,
@@ -228,7 +267,6 @@ class TweetImage extends StatefulWidget
   _TweetImageState createState() => _TweetImageState();
 }
 
-// Updated TweetImage State class
 class _TweetImageState extends State<TweetImage> {
   late TweetInteractionManager _interactions;
 
@@ -247,36 +285,46 @@ class _TweetImageState extends State<TweetImage> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TweetHeader(
-            tweet: widget.tweet,
-            onHideTweet: widget.hideTweet,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: Colors.black, // Border color
+            width: 0.5, // Border thickness
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: Text(widget.tweet.description),
+          borderRadius: BorderRadius.circular(8.0), // Rounded corners for a modern look
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0), // Add padding inside the border
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TweetHeader(
+                tweet: widget.tweet,
+                onHideTweet: widget.hideTweet,
+              ),
+              // Use TweetDescriptionAndImage to display the description and image
+              TweetDescriptionAndImage(
+                description: widget.tweet.description,
+                imageURL: widget.tweet.imageURL,
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: TweetActions(
+                  tweet: widget.tweet,
+                  interactions: _interactions,
+                  onBookmark: widget.bookmarkTweet,
+                ),
+              ),
+              CommentsList(comments: widget.tweet.comments),
+            ],
           ),
-          Image.network(
-            widget.tweet.imageURL,
-            width: double.infinity,
-            fit: BoxFit.fitWidth,
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: TweetActions(
-              tweet: widget.tweet,
-              interactions: _interactions,
-              onBookmark: widget.bookmarkTweet,
-            ),
-          ),
-          CommentsList(comments: widget.tweet.comments),
-        ],
+        ),
       ),
     );
   }
 }
+
+
 
 
 class CreateNewTweet extends StatefulWidget {
@@ -287,14 +335,23 @@ class CreateNewTweet extends StatefulWidget {
 class _CreateNewTweetState extends State<CreateNewTweet> {
   final description = TextEditingController();
   final imageUrl = TextEditingController();
+  bool isImageUrlVisible = false;  // Track if the image URL field is visible
+
+  // Function to toggle the visibility of the image URL text field
+  void toggleImageUrlField() {
+    setState(() {
+      isImageUrlVisible = !isImageUrlVisible;
+    });
+  }
+
   Timer? _inactivityTimer;
 
-  
-   void resetInactivityTimer() {
-    // Cancel any existing timer
-    _inactivityTimer?.cancel();
-    
-    _inactivityTimer = Timer(const Duration(minutes: 10), () => _triggerPushNotification());
+  // Reset inactivity timer
+  void resetInactivityTimer() {
+    if (_inactivityTimer?.isActive ?? false) {
+      _inactivityTimer?.cancel();
+    }
+    _inactivityTimer = Timer(const Duration(seconds: 20), _triggerPushNotification);
   }
 
   // Trigger push notification after inactivity
@@ -304,13 +361,13 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
 
   // Save draft tweet
   Future<void> draftTweet() async {
-    resetInactivityTimer();
     final newDraft = Draft(
       description: description.text,
       imageURL: imageUrl.text.isNotEmpty ? imageUrl.text : '',
     );
     await DraftsDatabase.instance.insertDraft(newDraft);
 
+    resetInactivityTimer(); // Reset the timer after saving a draft
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('Tweet saved as draft')),
@@ -358,56 +415,100 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
     super.dispose();
   }
 
-  @override
-  
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create New Tweet'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: description,
-              decoration: const InputDecoration(hintText: 'Description'),
-              onChanged: (_) => resetInactivityTimer(), // Reset timer on change
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: const Text('Create New Tweet'),
+      backgroundColor: const Color.fromARGB(255, 202, 195, 247),
+      foregroundColor: const Color.fromARGB(255, 48, 40, 98),
+    ),
+    body: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color.fromARGB(255, 48, 40, 98), width: 1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            TextField(
-              controller: imageUrl,
-              decoration: const InputDecoration(hintText: 'Image URL (optional)'),
-              onChanged: (_) => resetInactivityTimer(), // Reset timer on change
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            padding: const EdgeInsets.all(16),
+            child: Stack(
               children: [
-                ElevatedButton(
-                  onPressed: createTweet,
-                  child: const Text('Create Tweet'),
+                Column(
+                  children: [
+                    // Description text box
+                    TextField(
+                      controller: description,
+                      maxLines: 5, // Makes the text box bigger, allowing more lines
+                      decoration: InputDecoration(
+                        hintText: 'Today I am feeling..',
+                        border: OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: const Color.fromARGB(255, 48, 40, 98), width: 2),
+                        ),
+                      ),
+                    ),
+                    if (isImageUrlVisible)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: TextField(
+                          controller: imageUrl,
+                          decoration: const InputDecoration(hintText: 'Image URL (optional)'),
+                        ),
+                      ),
+                    
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton(
+                          onPressed: draftTweet,
+                          child: const Text('Save as Draft'),
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          onPressed: createTweet,
+                          child: const Text('Create Tweet'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                ElevatedButton(
-                  onPressed: draftTweet,
-                  child: const Text('Draft Tweet'),
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: IconButton(
+                    icon: const Icon(Icons.image),
+                    onPressed: () {
+                      setState(() {
+                        isImageUrlVisible = !isImageUrlVisible; 
+                      });
+                    },
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => DraftsScreen()),
-                );
-                resetInactivityTimer(); // Reset timer on viewing drafts
-              },
-              child: const Text('View Previous Drafts'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
+          ),
+          const SizedBox(height: 20),
 
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => DraftsScreen()),
+                  );
+                  resetInactivityTimer(); 
+                },
+                child: const Text('View Previous Drafts'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+  );
+}
+}
