@@ -369,12 +369,12 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
             TextField(
               controller: description,
               decoration: const InputDecoration(hintText: 'Description'),
-              onChanged: (_) => resetInactivityTimer(), // Reset timer on change
+              onChanged: (_) => resetInactivityTimer(), 
             ),
             TextField(
               controller: imageUrl,
               decoration: const InputDecoration(hintText: 'Image URL (optional)'),
-              onChanged: (_) => resetInactivityTimer(), // Reset timer on change
+              onChanged: (_) => resetInactivityTimer(), 
             ),
             const SizedBox(height: 20),
             Row(
@@ -397,7 +397,7 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
                   context,
                   MaterialPageRoute(builder: (context) => DraftsScreen()),
                 );
-                resetInactivityTimer(); // Reset timer on viewing drafts
+                resetInactivityTimer(); 
               },
               child: const Text('View Previous Drafts'),
             ),
