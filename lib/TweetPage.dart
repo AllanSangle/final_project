@@ -114,36 +114,39 @@ class TweetActions extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        _iconWithCount(
-          Icons.chat_bubble_outline,
-          tweet.numComments,
-          () => interactions.addComment(context),
-        ),
-        const SizedBox(width: 20),
-        _iconWithCount(
-          tweet.isRetweeted ? Icons.repeat : Icons.repeat_outlined,
-          tweet.numRetweets,
-          interactions.addRetweet,
-          iconColor: tweet.isRetweeted ? const Color.fromARGB(255, 25, 129, 28) : Colors.grey,
-        ),
-        const SizedBox(width: 20),
-        _iconWithCount(
-          tweet.isLiked ? Icons.favorite : Icons.favorite_border,
-          tweet.numLikes,
-          interactions.addLike,
-          iconColor: tweet.isLiked ? const Color.fromARGB(255, 172, 26, 15) : Colors.grey,
-        ),
-        const Spacer(),
-        IconButton(
-          icon: Icon(
-            tweet.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-            color: tweet.isBookmarked ? const Color.fromARGB(255, 47, 27, 158) : Colors.grey,
+    return Padding(
+      padding: const EdgeInsets.only(left: 32.0), 
+      child: Row(
+        children: [
+          _iconWithCount(
+            Icons.chat_bubble_outline,
+            tweet.numComments,
+            () => interactions.addComment(context),
           ),
-          onPressed: onBookmark,
-        ),
-      ],
+          const SizedBox(width: 20),
+          _iconWithCount(
+            tweet.isRetweeted ? Icons.repeat : Icons.repeat_outlined,
+            tweet.numRetweets,
+            interactions.addRetweet,
+            iconColor: tweet.isRetweeted ? const Color.fromARGB(255, 25, 129, 28) : Colors.grey,
+          ),
+          const SizedBox(width: 20),
+          _iconWithCount(
+            tweet.isLiked ? Icons.favorite : Icons.favorite_border,
+            tweet.numLikes,
+            interactions.addLike,
+            iconColor: tweet.isLiked ? const Color.fromARGB(255, 172, 26, 15) : Colors.grey,
+          ),
+          const Spacer(),
+          IconButton(
+            icon: Icon(
+              tweet.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
+              color: tweet.isBookmarked ? const Color.fromARGB(255, 47, 27, 158) : Colors.grey,
+            ),
+            onPressed: onBookmark,
+          ),
+        ],
+      ),
     );
   }
 }
@@ -208,15 +211,53 @@ class CommentItem extends StatelessWidget {
   }
 }
 
-class TweetImage extends StatefulWidget 
-{
+class TweetDescriptionAndImage extends StatelessWidget {
+  final String description;
+  final String imageURL;
+
+  const TweetDescriptionAndImage({
+    Key? key,
+    required this.description,
+    required this.imageURL,
+  }) : super(key: key);
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(left: 40.0),  // Shift to the right by 16 pixels
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,  // Keep the text left-aligned
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 1.0),
+            child: Text(description),
+          ),
+          if (imageURL.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8.0),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12.0), // Radius of 12
+                child: Image.network(
+                  imageURL,
+                  width: 200.0,  // Set a width for the image
+                  height: 200.0, // Set a height if needed
+                  fit: BoxFit.cover,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class TweetImage extends StatefulWidget {
   final Tweet tweet;
   final Function() bookmarkTweet;
   final Function() hideTweet;
 
-  const TweetImage
-  ({
-    Key key = const Key(""), 
+  const TweetImage({
+    Key? key,
     required this.tweet,
     required this.bookmarkTweet,
     required this.hideTweet,
@@ -226,7 +267,6 @@ class TweetImage extends StatefulWidget
   _TweetImageState createState() => _TweetImageState();
 }
 
-// Updated TweetImage State class
 class _TweetImageState extends State<TweetImage> {
   late TweetInteractionManager _interactions;
 
@@ -245,36 +285,46 @@ class _TweetImageState extends State<TweetImage> {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          TweetHeader(
-            tweet: widget.tweet,
-            onHideTweet: widget.hideTweet,
+      child: Container(
+        decoration: BoxDecoration(
+          border: Border.all(
+            color: Colors.black, // Border color
+            width: 0.5, // Border thickness
           ),
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: Text(widget.tweet.description),
+          borderRadius: BorderRadius.circular(8.0), // Rounded corners for a modern look
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12.0), // Add padding inside the border
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TweetHeader(
+                tweet: widget.tweet,
+                onHideTweet: widget.hideTweet,
+              ),
+              // Use TweetDescriptionAndImage to display the description and image
+              TweetDescriptionAndImage(
+                description: widget.tweet.description,
+                imageURL: widget.tweet.imageURL,
+              ),
+              Padding(
+                padding: const EdgeInsets.only(top: 8.0),
+                child: TweetActions(
+                  tweet: widget.tweet,
+                  interactions: _interactions,
+                  onBookmark: widget.bookmarkTweet,
+                ),
+              ),
+              CommentsList(comments: widget.tweet.comments),
+            ],
           ),
-          Image.network(
-            widget.tweet.imageURL,
-            width: double.infinity,
-            fit: BoxFit.fitWidth,
-          ),
-          Padding(
-            padding: const EdgeInsets.only(top: 8.0),
-            child: TweetActions(
-              tweet: widget.tweet,
-              interactions: _interactions,
-              onBookmark: widget.bookmarkTweet,
-            ),
-          ),
-          CommentsList(comments: widget.tweet.comments),
-        ],
+        ),
       ),
     );
   }
 }
+
+
 
 
 class CreateNewTweet extends StatefulWidget {

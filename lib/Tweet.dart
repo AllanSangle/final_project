@@ -277,10 +277,19 @@ class _TweetWidgetState extends State<TweetWidget> {
 Widget build(BuildContext context) {
   return Scaffold(
     appBar: AppBar(
-      title: const Text('Blog Demo alpha-V.1'),
+      title: const Text(
+        'Blog Demo alpha-V.1',
+        style: TextStyle(
+          fontSize: 24, // Set the font size
+          fontWeight: FontWeight.bold, // Make the font bold
+          color: Color.fromARGB(255, 45, 39, 86), // Set the text color
+        ),
+      ),
+      backgroundColor: const Color.fromARGB(255, 202, 195, 247), // Set the background color
+      elevation: 5.0, // Add some elevation for shadow effect
       actions: [
         IconButton(
-          icon: const Icon(Icons.logout),
+          icon: const Icon(Icons.logout, color: Color.fromARGB(255, 45, 39, 86)), // Set icon color
           onPressed: () => signOut(context),
         ),
       ],
@@ -322,6 +331,7 @@ Widget build(BuildContext context) {
         }
       },
       child: const Icon(Icons.add),
+      backgroundColor: const Color.fromARGB(255, 202, 195, 247), // Set FAB background color
     ),
   );
 }
