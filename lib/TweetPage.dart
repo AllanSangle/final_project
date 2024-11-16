@@ -335,6 +335,15 @@ class CreateNewTweet extends StatefulWidget {
 class _CreateNewTweetState extends State<CreateNewTweet> {
   final description = TextEditingController();
   final imageUrl = TextEditingController();
+  bool isImageUrlVisible = false;  // Track if the image URL field is visible
+
+  // Function to toggle the visibility of the image URL text field
+  void toggleImageUrlField() {
+    setState(() {
+      isImageUrlVisible = !isImageUrlVisible;
+    });
+  }
+
   Timer? _inactivityTimer;
 
   // Reset inactivity timer
@@ -406,54 +415,103 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create New Tweet'),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          children: [
-            TextField(
-              controller: description,
-              decoration: const InputDecoration(hintText: 'Description'),
-              onChanged: (_) => resetInactivityTimer(), // Reset timer on change
+@override
+Widget build(BuildContext context) {
+  return Scaffold(
+    appBar: AppBar(
+      title: const Text('Create New Tweet'),
+      backgroundColor: const Color.fromARGB(255, 202, 195, 247),
+      foregroundColor: const Color.fromARGB(255, 48, 40, 98),
+    ),
+    body: Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          // Container wrapping the description, image URL fields, and buttons
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: const Color.fromARGB(255, 48, 40, 98), width: 1),
+              borderRadius: BorderRadius.circular(8),
             ),
-            TextField(
-              controller: imageUrl,
-              decoration: const InputDecoration(hintText: 'Image URL (optional)'),
-              onChanged: (_) => resetInactivityTimer(), // Reset timer on change
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            padding: const EdgeInsets.all(16),
+            child: Stack(
               children: [
-                ElevatedButton(
-                  onPressed: createTweet,
-                  child: const Text('Create Tweet'),
+                // Column to hold the description text box, image URL input, and buttons
+                Column(
+                  children: [
+                    // Description text box
+                    TextField(
+                      controller: description,
+                      maxLines: 5, // Makes the text box bigger, allowing more lines
+                      decoration: InputDecoration(
+                        hintText: 'Today I am feeling..',
+                        border: OutlineInputBorder(),
+                        focusedBorder: OutlineInputBorder(
+                          borderSide: BorderSide(color: const Color.fromARGB(255, 48, 40, 98), width: 2),
+                        ),
+                      ),
+                    ),
+                    if (isImageUrlVisible)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8.0),
+                        child: TextField(
+                          controller: imageUrl,
+                          decoration: const InputDecoration(hintText: 'Image URL (optional)'),
+                        ),
+                      ),
+                    // Buttons aligned to the center
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        ElevatedButton(
+                          onPressed: draftTweet,
+                          child: const Text('Save as Draft'),
+                        ),
+                        const SizedBox(width: 10),
+                        ElevatedButton(
+                          onPressed: createTweet,
+                          child: const Text('Create Tweet'),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
-                ElevatedButton(
-                  onPressed: draftTweet,
-                  child: const Text('Draft Tweet'),
+                // Image icon inside the container, positioned in the bottom-right corner
+                Align(
+                  alignment: Alignment.bottomRight,
+                  child: IconButton(
+                    icon: const Icon(Icons.image),
+                    onPressed: () {
+                      setState(() {
+                        isImageUrlVisible = !isImageUrlVisible; // Toggle the visibility of the image URL field
+                      });
+                    },
+                  ),
                 ),
               ],
             ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => DraftsScreen()),
-                );
-                resetInactivityTimer(); // Reset timer on viewing drafts
-              },
-              child: const Text('View Previous Drafts'),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 20),
+          // View Previous Drafts button aligned to the right
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => DraftsScreen()),
+                  );
+                  resetInactivityTimer(); // Reset timer when viewing drafts
+                },
+                child: const Text('View Previous Drafts'),
+              ),
+            ],
+          ),
+        ],
       ),
-    );
-  }
+    ),
+  );
+}
 }
