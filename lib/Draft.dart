@@ -31,21 +31,18 @@ class DraftsDatabase {
 
   DraftsDatabase._init();
 
-  // Open or create the database
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB('drafts.db');
     return _database!;
   }
 
-  // Initialize the database
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
     return openDatabase(path, version: 1, onCreate: _createDB);
   }
 
-  // Create the database table
   Future _createDB(Database db, int version) async {
     await db.execute('''
       CREATE TABLE drafts (
@@ -55,13 +52,11 @@ class DraftsDatabase {
     ''');
   }
 
-  // Insert a draft tweet into the database
   Future<int> insertDraft(Draft draft) async {
     final db = await instance.database;
     return await db.insert('drafts', draft.toMap());
   }
 
-  // Get all drafted tweets
   Future<List<Draft>> getDrafts() async {
     final db = await instance.database;
     final result = await db.query('drafts');
@@ -69,6 +64,7 @@ class DraftsDatabase {
   }
 
 }
+
 class DraftsScreen extends StatelessWidget {
   
   @override
