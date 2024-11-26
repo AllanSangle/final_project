@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:final_project/TweetPage.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 final commentsRef = FirebaseFirestore.instance.collection('comments');
 class Comment {
@@ -63,64 +64,114 @@ class CommentsList extends StatelessWidget {
   }
 }
 
-class CreateComment extends StatefulWidget 
-{
+
+
+
+
+class CreateComment extends StatefulWidget {
   const CreateComment({super.key});
+
   @override
   _CreateCommentState createState() => _CreateCommentState();
 }
 
-class _CreateCommentState extends State<CreateComment> 
-{
-  final userLongName = TextEditingController();
-  final userShortName = TextEditingController();
-  final text = TextEditingController();
-  final imageURL = TextEditingController();
+class _CreateCommentState extends State<CreateComment> {
+  final TextEditingController _commentController = TextEditingController();
+  final TextEditingController _imageURLController = TextEditingController();
 
-  void submitComment() 
-  {
+  @override
+  void dispose() {
+    _commentController.dispose();
+    _imageURLController.dispose();
+    super.dispose();
+  }
+
+  void submitComment() {
+    final user = FirebaseAuth.instance.currentUser;
+    
+    if (user == null) {
+      // Handle case where no user is logged in
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to comment')),
+      );
+      return;
+    }
+
+    if (_commentController.text.trim().isEmpty) {
+      // Prevent empty comments
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Comment cannot be empty')),
+      );
+      return;
+    }
+
     final newComment = Comment(
-      userLongName: userLongName.text,
-      userShortName: userShortName.text,
+      userLongName: user.displayName ?? 'Anonymous User', // Use Firebase user's display name
+      userShortName: '@${user.email?.split('@').first ?? 'user'}', // Create a short username from email
       timestamp: DateTime.now(),
-      text: text.text,
-      imageURL: imageURL.text,
+      text: _commentController.text.trim(),
+      imageURL: _imageURLController.text.trim().isNotEmpty 
+        ? _imageURLController.text.trim() 
+        : '', // Optional image URL
     );
 
     Navigator.pop(context, newComment);
   }
 
   @override
-  Widget build(BuildContext context) 
-  {
+  Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Create A Comment"),
+        title: const Text("Add a Comment"),
+        backgroundColor: const Color.fromARGB(255, 202, 195, 247),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             TextField(
-              controller: userLongName,
-              decoration: const InputDecoration(hintText: 'Name'),
+              controller: _commentController,
+              decoration: InputDecoration(
+                hintText: "Write your comment...",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.grey[100],
+              ),
+              maxLines: 4,
+              maxLength: 280, // Optional: Limit comment length
             ),
+            const SizedBox(height: 10),
             TextField(
-              controller: userShortName,
-              decoration: const InputDecoration(hintText: 'Username'),
-            ),
-            TextField(
-              controller: text,
-              decoration: const InputDecoration(hintText: "Add Reply..."),
-            ),
-            TextField(
-              controller: imageURL, 
-              decoration: const InputDecoration(hintText: "Image URL (optional)"),
+              controller: _imageURLController,
+              decoration: InputDecoration(
+                hintText: "Optional Image URL",
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                filled: true,
+                fillColor: Colors.grey[100],
+              ),
             ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: submitComment,
-              child: const Text("Comment"),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color.fromARGB(255, 202, 195, 247),
+                padding: const EdgeInsets.symmetric(vertical: 15),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              child: const Text(
+                "Post Comment",
+                style: TextStyle(
+                  color: Color.fromARGB(255, 45, 39, 86),
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ),
           ],
         ),
