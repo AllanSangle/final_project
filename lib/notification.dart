@@ -1,38 +1,44 @@
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 class NotificationService {
-  static final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin =
-      FlutterLocalNotificationsPlugin();
+  static final FlutterLocalNotificationsPlugin _notifications = FlutterLocalNotificationsPlugin();
+  static bool _initialized = false;
 
-  // Initialize notifications
   static Future<void> initialize() async {
-    final initializationSettingsAndroid =
-        AndroidInitializationSettings('app_icon'); // Icon in drawable folder
+    if (_initialized) return;
+    
+    const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    const initSettings = InitializationSettings(android: androidSettings);
 
-    final initializationSettings = InitializationSettings(
-      android: initializationSettingsAndroid,
+    await _notifications.initialize(
+      initSettings,
+      onDidReceiveNotificationResponse: (details) {
+      },
     );
 
-    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+    _initialized = true;
   }
 
-  // Show the notification
   static Future<void> showNotification() async {
+    if (!_initialized) await initialize();
+
     const androidDetails = AndroidNotificationDetails(
-      'default_channel_id', 
-      'Default Channel', 
-      importance: Importance.high, 
+      'drafts_channel',
+      'Draft Notifications',
+      channelDescription: 'Notifications for unused drafts',
+      importance: Importance.high,
       priority: Priority.high,
-    );
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
+      enableVibration: true,
     );
 
-    await flutterLocalNotificationsPlugin.show(
-      0, // Notification ID
-      'Unused Draft', // Title
-      'You haven\'t used any drafts in the last 5 minutes.', // Body
+    const notificationDetails = NotificationDetails(android: androidDetails);
+
+    await _notifications.show(
+      1,
+      'Unused Draft Reminder',
+      'You have unfinished drafts waiting for you!',
       notificationDetails,
     );
   }
+  
 }
