@@ -5,6 +5,7 @@ import 'package:final_project/TweetPage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:final_project/Profile.dart';
+import 'package:final_project/SearchTweetsPage.dart'; // Import SearchTweetsPage
 
 
 final tweetsRef = FirebaseFirestore.instance.collection('tweets');
@@ -26,6 +27,7 @@ class Tweet {
   List<Comment> comments;
   List<String> likedBy;
   List<String> retweetedBy;
+  
 
   Tweet({
     this.id,
@@ -186,6 +188,7 @@ class _TweetWidgetState extends State<TweetWidget> {
   Future<void> loadTweets() async {
     try {
       final querySnapshot = await tweetsRef.orderBy('timestamp', descending: true).get();
+    print('Fetched ${querySnapshot.docs.length} tweets from Firestore');
 
       List<Tweet> loadedTweets = querySnapshot.docs
           .map((doc) {
@@ -200,6 +203,7 @@ class _TweetWidgetState extends State<TweetWidget> {
           .toList()
           .cast<Tweet>();
 
+      print('Loaded tweets: ${loadedTweets.length}');
       for (var tweet in loadedTweets) {
         await loadComments(tweet);
       }
@@ -338,13 +342,28 @@ class _TweetWidgetState extends State<TweetWidget> {
             Navigator.push(
               context,
               MaterialPageRoute(builder: (context) => ProfilePage()));
-          }
-        },
+        } else if (index == 1) {  
+          String _profilePictureUrl = ''; 
+
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => SearchTweetsPage(
+                allTweets: tweets, 
+                profilePicUrl: _profilePictureUrl,
+              ),
+            ),
+          );
+        }
+      },
+
+      
         backgroundColor: const Color.fromARGB(255, 202, 195, 247),
         selectedItemColor: const Color.fromARGB(255, 45, 39, 86),
         unselectedItemColor: const Color.fromARGB(255, 155, 140, 180),
         elevation: 10.0,
       ),
+      
     );
   }
 }
