@@ -68,7 +68,6 @@ class _SearchTweetsPageState extends State<SearchTweetsPage> {
               onChanged: updateSearchResults, 
             ),
           ),
-          // Display Results
           Expanded(
             child: filteredTweets.isEmpty
                 ? Center(
