@@ -116,8 +116,7 @@ Widget build(BuildContext context) {
                   ],
                 ),
                 const SizedBox(height: 6),
-                // Add space between the profile details and description
-                const SizedBox(height: 6), // Adjust this space as needed
+                const SizedBox(height: 6), 
                 !_isEditing && _isSaved
                     ? Container(
                         padding: const EdgeInsets.all(1.0),
@@ -135,7 +134,6 @@ Widget build(BuildContext context) {
                       )
                     : Container(),
                 const SizedBox(height: 16),
-                // Only show the description text field if editing
                 _isEditing
                     ? TextField(
                         controller: _descriptionController,
