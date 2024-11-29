@@ -24,7 +24,8 @@ class Tweet {
   bool isBookmarked;
   bool isLiked;
   bool isRetweeted;
-  List<Comment> comments;
+  List<Comment> comments; // Change this line
+
   List<String> likedBy;
   List<String> retweetedBy;
   
@@ -43,10 +44,10 @@ class Tweet {
     this.isBookmarked = false,
     this.isLiked = false,
     this.isRetweeted = false,
-    this.comments = const [],
+    List<Comment>? comments, 
     this.likedBy = const [],
     this.retweetedBy = const [],
-  });
+  }) : comments = comments ?? []; 
 
   Map<String, dynamic> toMap() {
     return {
@@ -144,7 +145,7 @@ class TweetInteractionManager {
     }
   }
 
-  Future<void> addComment(BuildContext context) async {
+ Future<void> addComment(BuildContext context) async {
     final reply = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -158,7 +159,8 @@ class TweetInteractionManager {
       reply.id = docRef.id;
 
       setState(() {
-        tweet.comments.add(reply);
+        // Create a new list with existing comments and the new comment
+        tweet.comments = List<Comment>.from(tweet.comments)..add(reply);
         tweet.numComments++;
       });
 
@@ -188,25 +190,27 @@ class _TweetWidgetState extends State<TweetWidget> {
   Future<void> loadTweets() async {
     try {
       final querySnapshot = await tweetsRef.orderBy('timestamp', descending: true).get();
-    print('Fetched ${querySnapshot.docs.length} tweets from Firestore');
 
+      // Parse tweets and handle possible null/malformed documents
       List<Tweet> loadedTweets = querySnapshot.docs
           .map((doc) {
             try {
               return Tweet.fromDocument(doc);
             } catch (e) {
               print("Error parsing tweet: $e");
-              return null;
+              return null; // Skip malformed tweet
             }
           })
-          .where((tweet) => tweet != null)
+          .where((tweet) => tweet != null) // Filter out null tweets
           .toList()
           .cast<Tweet>();
 
-      print('Loaded tweets: ${loadedTweets.length}');
+      // Load comments for each valid tweet
       for (var tweet in loadedTweets) {
-        await loadComments(tweet);
+        await loadComments(tweet); // Wait for each comment load to complete
       }
+
+      // Update state with the loaded tweets
 
       setState(() {
         tweets = loadedTweets;
@@ -217,14 +221,32 @@ class _TweetWidgetState extends State<TweetWidget> {
   }
 
   Future<void> loadComments(Tweet tweet) async {
-    final querySnapshot = await commentsRef
-        .where('tweetId', isEqualTo: tweet.id)
-        .orderBy('timestamp', descending: false)
-        .get();
 
-    setState(() {
-      tweet.comments = querySnapshot.docs.map((doc) => Comment.fromDocument(doc)).toList();
-    });
+    try {
+      // Query the comments collection to fetch comments related to the tweet
+      final querySnapshot = await commentsRef
+          .where('tweetId', isEqualTo: tweet.id) // Match comments with the tweet ID
+          .orderBy('timestamp', descending: false) // Sort comments by timestamp in ascending order
+          .get();
+
+      // Map the query snapshot to a list of Comment objects
+      final comments = querySnapshot.docs.map((doc) {
+        try {
+          return Comment.fromDocument(doc); // Parse each comment document
+        } catch (e) {
+          print("Error parsing comment: $e");
+          return null; // Skip malformed comments
+        }
+      }).where((comment) => comment != null).toList().cast<Comment>();
+
+      // Update the tweet object with the loaded comments
+      setState(() {
+        tweet.comments = comments;
+      });
+    } catch (e) {
+      print("Error loading comments for tweet with ID ${tweet.id}: $e");
+    }
+
   }
 
   Future<void> newTweet(Tweet tweet) async {
@@ -366,4 +388,6 @@ class _TweetWidgetState extends State<TweetWidget> {
       
     );
   }
+
 }
+
