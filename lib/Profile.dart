@@ -1,12 +1,8 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:final_project/main.dart';
-import 'package:final_project/TweetPage.dart';
-import 'package:final_project/SearchTweetsPage.dart'; 
-
-final FirebaseAuth _auth = FirebaseAuth.instance;
-final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
 class ProfilePage extends StatefulWidget {
   @override
@@ -14,211 +10,173 @@ class ProfilePage extends StatefulWidget {
 }
 
 class _ProfilePageState extends State<ProfilePage> {
-  TextEditingController _descriptionController = TextEditingController();
-  TextEditingController _usernameController = TextEditingController();
-  String? _profilePictureUrl;
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _usernameController = TextEditingController();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   String? _username;
   String? _userEmail;
+  String? _profileImagePath; // Path of the selected profile image from assets
   bool _isEditing = false;
-  bool _isSaved = false; // Flag to track if profile has been saved
+
+  final List<String> _presetImages = [
+    'assets/profile1.png',
+    'assets/profile2.png',
+    'assets/profile3.png',
+    'assets/profile4.png',
+    'assets/profile5.png',
+  ];
 
   @override
   void initState() {
     super.initState();
-    _getUserData(); // Ensure data is loaded when the page is refreshed
+    _getUserData();
   }
 
   Future<void> _getUserData() async {
     final User? user = _auth.currentUser;
 
     if (user != null) {
-      // Fetch user profile data from Firestore
       DocumentSnapshot userDoc =
           await _firestore.collection('users').doc(user.uid).get();
 
       setState(() {
         _username = user.displayName;
         _userEmail = user.email;
-        _profilePictureUrl = user.photoURL;
-        _descriptionController.text = userDoc['description'] ?? ''; // Load description from Firestore
-        _usernameController.text = _username ?? ''; // Set the username controller
-        _isSaved = true; // Mark that the profile has been loaded and saved previously
+        _descriptionController.text = userDoc['description'] ?? '';
+        _usernameController.text = _username ?? '';
+        _profileImagePath = userDoc['profileImagePath'] ?? _presetImages.first;
       });
     }
   }
 
-  // Save profile data to Firestore
-  Future<void> _saveProfileData() async {
+  Future<void> _saveProfileData({String? newProfileImagePath}) async {
     final User? user = _auth.currentUser;
 
     if (user != null) {
       await _firestore.collection('users').doc(user.uid).set({
         'description': _descriptionController.text,
-        'username': _usernameController.text, // Save edited username
+        'username': _usernameController.text,
+        if (newProfileImagePath != null) 'profileImagePath': newProfileImagePath,
       }, SetOptions(merge: true));
 
-      setState(() {
-        _isEditing = false;
-        _isSaved = true; // Mark profile as saved
-        _username = _usernameController.text; // Update the username state
-      });
+      if (newProfileImagePath != null) {
+        setState(() {
+          _profileImagePath = newProfileImagePath;
+        });
+      }
     }
   }
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      title: Text("Profile"),
-      backgroundColor: const Color.fromARGB(255, 202, 195, 247),
-    ),
-    body: Stack(
-      children: [
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
+
+  void _selectPresetImage() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                "Choose a Profile Picture",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              GridView.builder(
+                shrinkWrap: true,
+                itemCount: _presetImages.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 3,
+                  crossAxisSpacing: 10,
+                  mainAxisSpacing: 10,
+                ),
+                itemBuilder: (context, index) {
+                  return GestureDetector(
+                    onTap: () async {
+                      final selectedImage = _presetImages[index];
+                      await _saveProfileData(newProfileImagePath: selectedImage);
+                      Navigator.pop(context); // Close the bottom sheet
+                    },
+                    child: CircleAvatar(
+                      radius: 40,
+                      backgroundImage: AssetImage(_presetImages[index]),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Profile"),
+        backgroundColor: const Color.fromARGB(255, 202, 195, 247),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: SingleChildScrollView(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Profile Picture
-                    CircleAvatar(
-                      radius: 60,
-                      backgroundImage: _profilePictureUrl != null
-                          ? NetworkImage(_profilePictureUrl!)
-                          : AssetImage('assets/placeholder_profile.png') as ImageProvider,
-                      child: _profilePictureUrl == null
-                          ? Icon(Icons.add_a_photo, size: 50)
-                          : null,
-                    ),
-                    const SizedBox(width: 16),
-                    // User Details (Name and Email stacked vertically)
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          _username ?? 'Loading...',
-                          style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _userEmail ?? 'Loading...',
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 1,
-                        ),
-                      ],
-                    ),
-                  ],
+                // Profile Picture with GestureDetector for selecting preset images
+                GestureDetector(
+                  onTap: _selectPresetImage,
+                  child: CircleAvatar(
+                    radius: 60,
+                    backgroundImage: _profileImagePath != null
+                        ? AssetImage(_profileImagePath!)
+                        : const AssetImage('assets/placeholder_profile.png'),
+                  ),
                 ),
-                const SizedBox(height: 6),
-                const SizedBox(height: 6), 
-                !_isEditing && _isSaved
-                    ? Container(
-                        padding: const EdgeInsets.all(1.0),
-                        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width - 150),
-                        child: Text(
-                          _descriptionController.text,
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: Colors.black87,
-                          ),
-                          overflow: TextOverflow.ellipsis,
-                          maxLines: 4,
-                          softWrap: true,
-                        ),
-                      )
-                    : Container(),
                 const SizedBox(height: 16),
-                _isEditing
-                    ? TextField(
-                        controller: _descriptionController,
-                        decoration: InputDecoration(
-                          labelText: "Edit your description",
-                          border: OutlineInputBorder(),
-                        ),
-                        maxLines: 4,
-                      )
-                    : Container(),
+                // Username
+                Text(
+                  _username ?? 'Loading...',
+                  style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                // User Email
+                Text(
+                  _userEmail ?? 'Loading...',
+                  style: const TextStyle(fontSize: 16, color: Colors.grey),
+                ),
                 const SizedBox(height: 16),
+                // Description Text Field
+                TextField(
+                  controller: _descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: "Your description",
+                    border: OutlineInputBorder(),
+                  ),
+                  maxLines: 4,
+                  enabled: _isEditing,
+                ),
+                const SizedBox(height: 16),
+                // Save/Edit Profile Button
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _isEditing = !_isEditing;
+                    });
+                    if (!_isEditing) {
+                      _saveProfileData();
+                    }
+                  },
+                  child: Text(_isEditing ? "Save" : "Edit Profile"),
+                ),
               ],
             ),
           ),
         ),
-        Positioned(
-          top: 220.0,
-          right: 20.0,
-          child: ElevatedButton(
-            onPressed: () {
-              setState(() {
-                _isEditing = !_isEditing;
-              });
-              if (!_isEditing) {
-                _saveProfileData();
-              }
-            },
-            child: Text(_isEditing ? "Save" : "Edit Profile"),
-          ),
-        ),
-      ],
-    ),
-    bottomNavigationBar: BottomNavigationBar(
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home),
-          label: 'Home',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.search),
-          label: 'Search',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.add),
-          label: 'New Tweet',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.account_circle),
-          label: 'Profile',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.logout),
-          label: 'Logout',
-        ),
-      ],
-      onTap: (index) {
-        if (index == 2) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => CreateNewTweet()),
-          );
-        } else if (index == 4) {
-          signOut(context);
-        } else if (index == 3) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => ProfilePage()),
-          );
-        } else if (index == 1) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => SearchTweetsPage(
-                allTweets: [],  // Pass your list of tweets here
-                profilePicUrl: _profilePictureUrl,  // Pass the profile picture URL
-              ),
-            ),
-          );
-        }
-      },
-      backgroundColor: const Color.fromARGB(255, 202, 195, 247),
-      selectedItemColor: const Color.fromARGB(255, 45, 39, 86),
-      unselectedItemColor: const Color.fromARGB(255, 155, 140, 180),
-      elevation: 10.0,
-    ),
-  );
-}
+      ),
+    );
+  }
 }

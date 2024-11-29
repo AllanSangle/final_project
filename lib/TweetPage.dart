@@ -1,6 +1,7 @@
 
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:final_project/Comment.dart';
 import 'package:final_project/Draft.dart';
 import 'package:final_project/Tweet.dart';
@@ -10,7 +11,7 @@ import 'package:flutter/material.dart';
 
 class TweetHeader extends StatelessWidget {
   final Tweet tweet;
-  final VoidCallback onHideTweet;
+  final Function() onHideTweet;
 
   const TweetHeader({
     Key? key,
@@ -41,50 +42,88 @@ class TweetHeader extends StatelessWidget {
     );
   }
 
+  Future<String> fetchProfileImagePath(String userId) async {
+    // Fetch the user document from Firestore to get the profile image path
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+    if (userDoc.exists) {
+      return userDoc['profileImagePath'] ?? 'assets/profile.png'; // Default if not found
+    } else {
+      return 'assets/profile.png'; // Default fallback
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     String timeString = '${tweet.timestamp.hour}:${tweet.timestamp.minute}';
 
-    return Row(
-      children: [
-        const CircleAvatar(radius: 15, backgroundColor: Colors.grey),
-        const SizedBox(width: 8.0),
-        Expanded(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(2.0),
-                child: Row(
-                  children: [
-                    Text(
-                      tweet.userName,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(width: 5.0),
-                    Text(
-                      '@${tweet.userEmail.split('@')[0]}',
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                    const SizedBox(width: 5.0),
-                    Text(
-                      '· $timeString',
-                      style: const TextStyle(color: Colors.grey),
-                    ),
-                    const Spacer(),
-                    IconButton(
-                      icon: const Icon(Icons.expand_more, size: 15, color: Colors.grey),
-                      onPressed: () => _showHideDialog(context),
-                    ),
-                  ],
+    return FutureBuilder<String>(
+      future: fetchProfileImagePath(tweet.userId), // Fetch the profile image path
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator()); // Show loading indicator
+        } else if (snapshot.hasError) {
+          return const Center(child: Text('Error loading profile image')); // Error handling
+        } else if (snapshot.hasData) {
+          String profileImagePath = snapshot.data!;
+
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
+            child: Row(
+              children: [
+                // Profile Image
+                CircleAvatar(
+                  radius: 20,  // Set a fixed size for the profile image
+                  backgroundImage: AssetImage(profileImagePath),  // Use fetched profile image path
                 ),
-              ),
-            ],
-          ),
-        ),
-      ],
+                const SizedBox(width: 8.0),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,  // Left-align the text
+                    children: [
+                      Row(
+                        children: [
+                          // User Name
+                          Text(
+                            tweet.userName,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16.0,
+                            ),
+                          ),
+                          const SizedBox(width: 5.0),
+                          // User Email (Display the part before @)
+                          Text(
+                            '@${tweet.userEmail.split('@')[0]}',
+                            style: const TextStyle(color: Colors.grey, fontSize: 14.0),
+                          ),
+                          const SizedBox(width: 5.0),
+                          // Timestamp (hour and minute)
+                          Text(
+                            '· $timeString',
+                            style: const TextStyle(color: Colors.grey, fontSize: 14.0),
+                          ),
+                          const Spacer(),
+                          // More options button (Hide Tweet)
+                          IconButton(
+                            icon: const Icon(Icons.expand_more, size: 20, color: Colors.grey),
+                            onPressed: () => _showHideDialog(context),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        } else {
+          return const Center(child: Text('No profile image found'));
+        }
+      },
     );
   }
 }
+
 
 
 // TweetActions component for handling likes, retweets, etc.
@@ -288,13 +327,13 @@ class _TweetImageState extends State<TweetImage> {
       child: Container(
         decoration: BoxDecoration(
           border: Border.all(
-            color: Colors.black, // Border color
-            width: 0.5, // Border thickness
+            color: Colors.black,
+            width: 0.5,
           ),
-          borderRadius: BorderRadius.circular(8.0), // Rounded corners for a modern look
+          borderRadius: BorderRadius.circular(8.0),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(12.0), // Add padding inside the border
+          padding: const EdgeInsets.all(12.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -302,7 +341,6 @@ class _TweetImageState extends State<TweetImage> {
                 tweet: widget.tweet,
                 onHideTweet: widget.hideTweet,
               ),
-              // Use TweetDescriptionAndImage to display the description and image
               TweetDescriptionAndImage(
                 description: widget.tweet.description,
                 imageURL: widget.tweet.imageURL,
