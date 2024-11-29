@@ -35,7 +35,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 
   Future<void> _getUserData() async {
-    final User? user = _auth.currentUser;
+    final User? user = FirebaseAuth.instance.currentUser;
 
     if (user != null) {
       DocumentSnapshot userDoc =
@@ -55,7 +55,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final User? user = _auth.currentUser;
 
     if (user != null) {
-      await _firestore.collection('users').doc(user.uid).set({
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
         'description': _descriptionController.text,
         'username': _usernameController.text,
         if (newProfileImagePath != null) 'profileImagePath': newProfileImagePath,
@@ -180,3 +180,4 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 }
+

@@ -412,9 +412,17 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
     );
   }
 
-  // Create tweet
   Future<void> createTweet() async {
     final user = FirebaseAuth.instance.currentUser;
+
+    // Check if the description is empty
+    if (description.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Error: Tweet cannot be empty')),
+      );
+      return;
+    }
+
     if (user != null) {
       try {
         final newTweet = Tweet(
