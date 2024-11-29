@@ -4,6 +4,9 @@ import 'package:final_project/main.dart';
 import 'package:final_project/TweetPage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:final_project/Profile.dart';
+import 'package:final_project/SearchTweetsPage.dart'; // Import SearchTweetsPage
+
 
 final tweetsRef = FirebaseFirestore.instance.collection('tweets');
 
@@ -25,6 +28,7 @@ class Tweet {
 
   List<String> likedBy;
   List<String> retweetedBy;
+  
 
   Tweet({
     this.id,
@@ -99,7 +103,6 @@ class TweetInteractionManager {
     required this.commentsRef,
   });
 
-
   Future<void> addLike() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null && tweet.id != null) {
@@ -118,7 +121,6 @@ class TweetInteractionManager {
         'numLikes': tweet.numLikes,
         'likedBy': tweet.likedBy,
       });
-      
     }
   }
 
@@ -140,7 +142,6 @@ class TweetInteractionManager {
         'numRetweets': tweet.numRetweets,
         'retweetedBy': tweet.retweetedBy,
       });
-      
     }
   }
 
@@ -151,18 +152,18 @@ class TweetInteractionManager {
         builder: (context) => const CreateComment(),
       ),
     );
-    
+
     if (reply != null && tweet.id != null) {
       reply.tweetId = tweet.id;
       final docRef = await commentsRef.add(reply.toMap());
       reply.id = docRef.id;
-      
+
       setState(() {
         // Create a new list with existing comments and the new comment
         tweet.comments = List<Comment>.from(tweet.comments)..add(reply);
         tweet.numComments++;
       });
-      
+
       await tweetsRef.doc(tweet.id).update({
         'numComments': tweet.numComments,
       });
@@ -170,8 +171,7 @@ class TweetInteractionManager {
   }
 }
 
-class TweetWidget extends StatefulWidget 
-{
+class TweetWidget extends StatefulWidget {
   const TweetWidget({super.key});
 
   @override
@@ -180,7 +180,7 @@ class TweetWidget extends StatefulWidget
 
 class _TweetWidgetState extends State<TweetWidget> {
   List<Tweet> tweets = [];
-  
+
   @override
   void initState() {
     super.initState();
@@ -211,6 +211,7 @@ class _TweetWidgetState extends State<TweetWidget> {
       }
 
       // Update state with the loaded tweets
+
       setState(() {
         tweets = loadedTweets;
       });
@@ -220,6 +221,7 @@ class _TweetWidgetState extends State<TweetWidget> {
   }
 
   Future<void> loadComments(Tweet tweet) async {
+
     try {
       // Query the comments collection to fetch comments related to the tweet
       final querySnapshot = await commentsRef
@@ -244,6 +246,7 @@ class _TweetWidgetState extends State<TweetWidget> {
     } catch (e) {
       print("Error loading comments for tweet with ID ${tweet.id}: $e");
     }
+
   }
 
   Future<void> newTweet(Tweet tweet) async {
@@ -292,20 +295,14 @@ class _TweetWidgetState extends State<TweetWidget> {
         title: const Text(
           'Blog Demo alpha-V.1',
           style: TextStyle(
-            fontSize: 24, // Set the font size
-            fontWeight: FontWeight.bold, // Make the font bold
-            color: Color.fromARGB(255, 45, 39, 86), // Set the text color
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
+            color: Color.fromARGB(255, 45, 39, 86),
           ),
         ),
-        backgroundColor: const Color.fromARGB(255, 202, 195, 247), // Set the background color
-        elevation: 5.0, // Add some elevation for shadow effect
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Color.fromARGB(255, 45, 39, 86)), // Set icon color
-            onPressed: () => signOut(context),
-          ),
-        ],
-      ),
+        backgroundColor: const Color.fromARGB(255, 202, 195, 247),
+        elevation: 5.0,
+        ),
       body: StreamBuilder<QuerySnapshot>(
         stream: tweetsRef.orderBy('timestamp', descending: true).snapshots(),
         builder: (context, snapshot) {
@@ -332,19 +329,65 @@ class _TweetWidgetState extends State<TweetWidget> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () async {
-          final tweet = await Navigator.push<Tweet>(
+      bottomNavigationBar: BottomNavigationBar(
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search),
+            label: 'Search',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add),
+            label: 'New Tweet',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.account_circle),
+            label: 'Profile',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.logout),
+            label: 'Logout',
+          ),
+        ],
+        onTap: (index) {
+          if (index == 2) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => CreateNewTweet()),
+            );
+          } else if (index == 4) {
+            signOut(context);
+          } else if (index == 3) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => ProfilePage()));
+        } else if (index == 1) {  
+          String _profilePictureUrl = ''; 
+
+          Navigator.push(
             context,
-            MaterialPageRoute(builder: (context) => CreateNewTweet()),
+            MaterialPageRoute(
+              builder: (context) => SearchTweetsPage(
+                allTweets: tweets, 
+                profilePicUrl: _profilePictureUrl,
+              ),
+            ),
           );
-          if (tweet != null) {
-            await newTweet(tweet);
-          }
-        },
-        child: const Icon(Icons.add),
-        backgroundColor: const Color.fromARGB(255, 202, 195, 247), // Set FAB background color
+        }
+      },
+
+      
+        backgroundColor: const Color.fromARGB(255, 202, 195, 247),
+        selectedItemColor: const Color.fromARGB(255, 45, 39, 86),
+        unselectedItemColor: const Color.fromARGB(255, 155, 140, 180),
+        elevation: 10.0,
       ),
+      
     );
   }
+
 }
+
