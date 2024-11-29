@@ -141,7 +141,7 @@ class _CreateCommentState extends State<CreateComment> {
                 fillColor: Colors.grey[100],
               ),
               maxLines: 4,
-              maxLength: 280, // Optional: Limit comment length
+              maxLength: 250, // Optional: Limit comment length
             ),
             const SizedBox(height: 10),
             TextField(

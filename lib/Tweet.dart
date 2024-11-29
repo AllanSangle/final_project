@@ -5,7 +5,7 @@ import 'package:final_project/TweetPage.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:final_project/Profile.dart';
-import 'package:final_project/SearchTweetsPage.dart'; // Import SearchTweetsPage
+import 'package:final_project/SearchTweetsPage.dart';
 
 
 final tweetsRef = FirebaseFirestore.instance.collection('tweets');
@@ -292,8 +292,7 @@ class _TweetWidgetState extends State<TweetWidget> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text(
-          'Blog Demo alpha-V.1',
+        title: const Text('Recent Tweets', 
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.bold,
@@ -302,6 +301,7 @@ class _TweetWidgetState extends State<TweetWidget> {
         ),
         backgroundColor: const Color.fromARGB(255, 202, 195, 247),
         elevation: 5.0,
+        automaticallyImplyLeading: false,
         ),
       body: StreamBuilder<QuerySnapshot>(
         stream: tweetsRef.orderBy('timestamp', descending: true).snapshots(),
@@ -388,6 +388,5 @@ class _TweetWidgetState extends State<TweetWidget> {
       
     );
   }
-
 }
 

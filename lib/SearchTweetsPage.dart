@@ -1,11 +1,15 @@
 import 'package:flutter/material.dart';
 import 'Tweet.dart';
+import 'main.dart'; // For the signOut function
+import 'package:final_project/Profile.dart';
+import 'package:final_project/TweetPage.dart';
 
 class SearchTweetsPage extends StatefulWidget {
   final List<Tweet> allTweets;
-  final String? profilePicUrl;  
+  final String? profilePicUrl;
 
-  const SearchTweetsPage({Key? key, required this.allTweets, this.profilePicUrl}) : super(key: key);
+  const SearchTweetsPage({Key? key, required this.allTweets, this.profilePicUrl})
+      : super(key: key);
 
   @override
   State<SearchTweetsPage> createState() => _SearchTweetsPageState();
@@ -14,12 +18,11 @@ class SearchTweetsPage extends StatefulWidget {
 class _SearchTweetsPageState extends State<SearchTweetsPage> {
   List<Tweet> filteredTweets = [];
   String searchQuery = '';
+  int currentIndex = 1; // Set default to the "Search" tab
 
   @override
   void initState() {
     super.initState();
-    print('All Tweets: ${widget.allTweets}');
-    
     filteredTweets = widget.allTweets;
   }
 
@@ -32,18 +35,44 @@ class _SearchTweetsPageState extends State<SearchTweetsPage> {
         final userName = tweet.userName.toLowerCase();
         final searchLower = query.toLowerCase();
 
-        print('Tweet Content: $tweetContent');
-        print('User Name: $userName');
-        print('Search Query: $searchLower');
-        
-        bool matches = tweetContent.contains(searchLower) || userName.contains(searchLower);
-        
-        // Debugging the result of the match
-        print('Matches: $matches');
-
-        return matches;
+        return tweetContent.contains(searchLower) || userName.contains(searchLower);
       }).toList();
     });
+  }
+
+  void onTabTapped(int index) {
+    setState(() {
+      currentIndex = index;
+    });
+
+    if (index == 2) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => CreateNewTweet()),
+      );
+    } else if (index == 4) {
+      signOut(context);
+    } else if (index == 3) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => ProfilePage()),
+      );
+    } else if (index == 1) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => SearchTweetsPage(
+            allTweets: widget.allTweets,
+            profilePicUrl: widget.profilePicUrl,
+          ),
+        ),
+      );
+    } else if (index == 0) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => TweetWidget()),
+      );
+    }
   }
 
   @override
@@ -51,6 +80,7 @@ class _SearchTweetsPageState extends State<SearchTweetsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Search Tweets"),
+        automaticallyImplyLeading: false,
       ),
       body: Column(
         children: [
@@ -65,7 +95,7 @@ class _SearchTweetsPageState extends State<SearchTweetsPage> {
                 ),
                 prefixIcon: const Icon(Icons.search),
               ),
-              onChanged: updateSearchResults, 
+              onChanged: updateSearchResults,
             ),
           ),
           Expanded(
@@ -95,6 +125,36 @@ class _SearchTweetsPageState extends State<SearchTweetsPage> {
                   ),
           ),
         ],
+      ),
+      bottomNavigationBar: BottomNavigationBar(
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.home),
+            label: 'Home',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search),
+            label: 'Search',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add),
+            label: 'New Tweet',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.account_circle),
+            label: 'Profile',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.logout),
+            label: 'Logout',
+          ),
+        ],
+        currentIndex: currentIndex,
+        onTap: onTabTapped,
+        backgroundColor: const Color.fromARGB(255, 202, 195, 247),
+        selectedItemColor: const Color.fromARGB(255, 45, 39, 86),
+        unselectedItemColor: const Color.fromARGB(255, 155, 140, 180),
+        elevation: 10.0,
       ),
     );
   }
