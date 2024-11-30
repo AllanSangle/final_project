@@ -12,8 +12,8 @@ class Comment {
   final DateTime timestamp;
   final String text;
   final String imageURL;
+  final String userId; // Explicitly storing user ID
   String? tweetId;
-  String? userId;
 
   Comment({
     this.id,
@@ -22,8 +22,8 @@ class Comment {
     required this.timestamp,
     required this.text,
     required this.imageURL,
+    required this.userId, // Make userId a required parameter
     this.tweetId,
-    this.userId,
   });
 
   Map<String, dynamic> toMap() {
@@ -33,6 +33,7 @@ class Comment {
       'timestamp': Timestamp.fromDate(timestamp),  
       'text': text,
       'imageURL': imageURL,
+      'userId': userId, // Include userId in the map
       'tweetId': tweetId,
     };
   }
@@ -46,6 +47,7 @@ class Comment {
       timestamp: (data['timestamp'] as Timestamp).toDate(),
       text: data['text'] ?? '',
       imageURL: data['imageURL'] ?? '',
+      userId: data['userId'] ?? '', // Retrieve userId when creating from document
       tweetId: data['tweetId'],
     );
   }
@@ -75,7 +77,7 @@ class CommentsList extends StatelessWidget {
       itemBuilder: (context, index) {
         final comment = comments[index];
         return FutureBuilder<String>(
-          future: fetchProfileImagePath("assets/profile1.png"),
+          future: fetchProfileImagePath(comment.userId),
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const CircularProgressIndicator(); // Show loading indicator while fetching
@@ -118,36 +120,38 @@ class _CreateCommentState extends State<CreateComment> {
   }
 
   void submitComment() {
-  final user = FirebaseAuth.instance.currentUser;
+    final user = FirebaseAuth.instance.currentUser;
   
-  if (user == null) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Please log in to comment')),
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to comment')),
+      );
+      return;
+    }
+
+    if (_commentController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Comment cannot be empty')),
+      );
+      return;
+    }
+
+    // Create a new comment with the user's ID explicitly stored
+    final newComment = Comment(
+      userLongName: user.displayName ?? 'Anonymous User',
+      userShortName: '@${user.email?.split('@').first ?? 'user'}',
+      timestamp: DateTime.now(),
+      text: _commentController.text.trim(),
+      imageURL: _imageURLController.text.trim().isNotEmpty 
+        ? _imageURLController.text.trim() 
+        : '',
+      userId: user.uid, // Store the unique user ID
+      tweetId: null, // This will be set by the caller
     );
-    return;
+    commentsRef.add(newComment.toMap());
+
+    Navigator.pop(context, newComment);
   }
-
-  if (_commentController.text.trim().isEmpty) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Comment cannot be empty')),
-    );
-    return;
-  }
-
-  // Pass the tweetId as a parameter when creating the comment
-  final newComment = Comment(
-    userLongName: user.displayName ?? 'Anonymous User',
-    userShortName: '@${user.email?.split('@').first ?? 'user'}',
-    timestamp: DateTime.now(),
-    text: _commentController.text.trim(),
-    imageURL: _imageURLController.text.trim().isNotEmpty 
-      ? _imageURLController.text.trim() 
-      : '',
-    tweetId: null, // This will be set by the caller
-  );
-
-  Navigator.pop(context, newComment);
-}
 
   @override
   Widget build(BuildContext context) {

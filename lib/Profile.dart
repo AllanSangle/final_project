@@ -50,6 +50,15 @@ class _ProfilePageState extends State<ProfilePage> {
       });
     }
   }
+    Future<String> fetchProfileImagePath(String userId) async {
+    // Fetch the user document from Firestore to get the profile image path
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+    if (userDoc.exists) {
+      return userDoc['profileImagePath'] ?? 'assets/profile.png'; // Default if not found
+    } else {
+      return 'assets/profile.png'; // Default fallback
+    }
+  }
 
   Future<void> _saveProfileData({String? newProfileImagePath}) async {
     final User? user = _auth.currentUser;
@@ -180,4 +189,3 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 }
-

@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'Tweet.dart';
 import 'main.dart'; // For the signOut function
@@ -40,38 +41,28 @@ class _SearchTweetsPageState extends State<SearchTweetsPage> {
     });
   }
 
+  Future<String> fetchProfileImagePath(String userId) async {
+    try {
+      final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+      return userDoc.exists ? (userDoc['profileImagePath'] ?? 'assets/profile.png') : 'assets/profile.png';
+    } catch (e) {
+      return 'assets/profile.png'; // Default fallback on error
+    }
+  }
+
   void onTabTapped(int index) {
     setState(() {
       currentIndex = index;
     });
 
     if (index == 2) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => CreateNewTweet()),
-      );
+      Navigator.push(context, MaterialPageRoute(builder: (context) => CreateNewTweet()));
     } else if (index == 4) {
       signOut(context);
     } else if (index == 3) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => ProfilePage()),
-      );
-    } else if (index == 1) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => SearchTweetsPage(
-            allTweets: widget.allTweets,
-            profilePicUrl: widget.profilePicUrl,
-          ),
-        ),
-      );
+      Navigator.push(context, MaterialPageRoute(builder: (context) => ProfilePage()));
     } else if (index == 0) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (context) => TweetWidget()),
-      );
+      Navigator.push(context, MaterialPageRoute(builder: (context) => TweetWidget()));
     }
   }
 
@@ -111,15 +102,32 @@ class _SearchTweetsPageState extends State<SearchTweetsPage> {
                     itemCount: filteredTweets.length,
                     itemBuilder: (context, index) {
                       final tweet = filteredTweets[index];
-                      return ListTile(
-                        leading: CircleAvatar(
-                          backgroundImage: widget.profilePicUrl != null
-                              ? NetworkImage(widget.profilePicUrl!)
-                              : const AssetImage('assets/placeholder_profile.png') as ImageProvider,
-                        ),
-                        title: Text(tweet.userName),
-                        subtitle: Text(tweet.description ?? 'No description'),
-                        trailing: Text('@${tweet.userName}'),
+                      return FutureBuilder<String>(
+                        future: fetchProfileImagePath(tweet.userId),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return const ListTile(
+                              leading: CircularProgressIndicator(),
+                              title: Text('Loading...'),
+                            );
+                          } else if (snapshot.hasError) {
+                            return ListTile(
+                              leading: const CircleAvatar(
+                                backgroundImage: AssetImage('assets/profile.png'),
+                              ),
+                              title: Text(tweet.userName),
+                              subtitle: Text(tweet.description ?? 'No description'),
+                            );
+                          } else {
+                            return ListTile(
+                              leading: CircleAvatar(
+                                backgroundImage: AssetImage(snapshot.data!),
+                              ),
+                              title: Text(tweet.userName),
+                              subtitle: Text(tweet.description ?? 'No description'),
+                            );
+                          }
+                        },
                       );
                     },
                   ),
