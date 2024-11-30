@@ -308,6 +308,7 @@ class TweetImage extends StatefulWidget {
 
 class _TweetImageState extends State<TweetImage> {
   late TweetInteractionManager _interactions;
+  bool _showComments = false; // State to manage comments visibility
 
   @override
   void initState() {
@@ -318,6 +319,25 @@ class _TweetImageState extends State<TweetImage> {
       tweetsRef: tweetsRef,
       commentsRef: commentsRef,
     );
+
+    // Load comments when the tweet is first displayed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadComments();
+    });
+  }
+
+  void _loadComments() async {
+    if (widget.tweet.id != null) {
+      final querySnapshot = await commentsRef
+          .where('tweetId', isEqualTo: widget.tweet.id)
+          .orderBy('timestamp', descending: false)
+          .get();
+
+      setState(() {
+        widget.tweet.comments =
+            querySnapshot.docs.map((doc) => Comment.fromDocument(doc)).toList();
+      });
+    }
   }
 
   @override
@@ -347,13 +367,29 @@ class _TweetImageState extends State<TweetImage> {
               ),
               Padding(
                 padding: const EdgeInsets.only(top: 8.0),
-                child: TweetActions(
-                  tweet: widget.tweet,
-                  interactions: _interactions,
-                  onBookmark: widget.bookmarkTweet,
+                child: Column(
+                  children: [
+                    TweetActions(
+                      tweet: widget.tweet,
+                      interactions: _interactions,
+                      onBookmark: widget.bookmarkTweet,
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _showComments = !_showComments;
+                        });
+                      },
+                      child: Text(
+                        _showComments ? 'Hide Comments' : 'View Comments',
+                        style: const TextStyle(color: Colors.blue),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              CommentsList(comments: widget.tweet.comments),
+              if (_showComments) // Display comments only if toggled on
+                CommentsList(comments: widget.tweet.comments),
             ],
           ),
         ),
@@ -413,47 +449,62 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
   }
 
   Future<void> createTweet() async {
-    final user = FirebaseAuth.instance.currentUser;
+  final user = FirebaseAuth.instance.currentUser;
 
-    // Check if the description is empty
-    if (description.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: Tweet cannot be empty')),
-      );
-      return;
-    }
-
-    if (user != null) {
-      try {
-        final newTweet = Tweet(
-          userName: user.displayName ?? 'Anonymous',
-          userEmail: user.email ?? 'unknown@example.com',
-          userId: user.uid,
-          timestamp: DateTime.now(),
-          description: description.text,
-          imageURL: imageUrl.text.isNotEmpty ? imageUrl.text : '',
-          numComments: 0,
-          numRetweets: 0,
-          numLikes: 0,
-          isBookmarked: false,
-          isLiked: false,
-          isRetweeted: false,
-          comments: [],
-          likedBy: [],
-          retweetedBy: [],
-        );
-        Navigator.of(context).pop(newTweet);
-      } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error creating tweet: ${e.toString()}')),
-        );
-      }
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Error: User not authenticated')),
-      );
-    }
+  // Check if the description is empty
+  if (description.text.isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Error: Tweet cannot be empty')),
+    );
+    return;
   }
+
+  if (user != null) {
+    try {
+      final newTweet = Tweet(
+        userName: user.displayName ?? 'Anonymous',
+        userEmail: user.email ?? 'unknown@example.com',
+        userId: user.uid,
+        timestamp: DateTime.now(),
+        description: description.text,
+        imageURL: imageUrl.text.isNotEmpty ? imageUrl.text : '',
+        numComments: 0,
+        numRetweets: 0,
+        numLikes: 0,
+        isBookmarked: false,
+        isLiked: false,
+        isRetweeted: false,
+        comments: [],
+        likedBy: [],
+        retweetedBy: [],
+      );
+
+      // Add the tweet to Firestore
+      final docRef = await tweetsRef.add(newTweet.toMap());
+      newTweet.id = docRef.id;
+
+      // Clear text controllers
+      description.clear();
+      imageUrl.clear();
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Tweet created successfully')),
+      );
+
+      // Navigate back to the previous screen
+      Navigator.of(context).pop();
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error creating tweet: ${e.toString()}')),
+      );
+    }
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Error: User not authenticated')),
+    );
+  }
+}
 
   @override
   void dispose() {

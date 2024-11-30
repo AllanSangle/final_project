@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:final_project/Server.dart';
 import 'package:final_project/TweetPage.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -12,6 +13,7 @@ class Comment {
   final String text;
   final String imageURL;
   String? tweetId;
+  String? userId;
 
   Comment({
     this.id,
@@ -21,6 +23,7 @@ class Comment {
     required this.text,
     required this.imageURL,
     this.tweetId,
+    this.userId,
   });
 
   Map<String, dynamic> toMap() {
@@ -51,19 +54,47 @@ class Comment {
 class CommentsList extends StatelessWidget {
   final List<Comment> comments;
 
-  const CommentsList({
-    Key? key,
-    required this.comments,
-  }) : super(key: key);
+  const CommentsList({Key? key, required this.comments}) : super(key: key);
+
+  Future<String> fetchProfileImagePath(String userId) async {
+    // Fetch the user document from Firestore to get the profile image path
+    final userDoc = await FirebaseFirestore.instance.collection('users').doc(userId).get();
+    if (userDoc.exists) {
+      return userDoc['profileImagePath'] ?? 'assets/profile.png'; // Default if not found
+    } else {
+      return 'assets/profile.png'; // Default fallback
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: comments.map((comment) => CommentItem(comment: comment)).toList(),
+    return ListView.builder(
+      shrinkWrap: true, // Ensures the list doesn't expand infinitely
+      physics: const NeverScrollableScrollPhysics(), // Disable scrolling in embedded lists
+      itemCount: comments.length,
+      itemBuilder: (context, index) {
+        final comment = comments[index];
+        return FutureBuilder<String>(
+          future: fetchProfileImagePath("assets/profile1.png"),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const CircularProgressIndicator(); // Show loading indicator while fetching
+            }
+
+            final profileImagePath = snapshot.data ?? 'assets/profile.png';
+            return ListTile(
+              leading: CircleAvatar(
+                backgroundImage: AssetImage(profileImagePath), // Display profile image
+              ),
+              title: Text(comment.userShortName), // Assuming `Comment` has a `userName` field
+              subtitle: Text(comment.text), // Assuming `Comment` has a `content` field
+            );
+          },
+        );
+      },
     );
   }
 }
-
 
 
 
@@ -87,36 +118,36 @@ class _CreateCommentState extends State<CreateComment> {
   }
 
   void submitComment() {
-    final user = FirebaseAuth.instance.currentUser;
-    
-    if (user == null) {
-      // Handle case where no user is logged in
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to comment')),
-      );
-      return;
-    }
-
-    if (_commentController.text.trim().isEmpty) {
-      // Prevent empty comments
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Comment cannot be empty')),
-      );
-      return;
-    }
-
-    final newComment = Comment(
-      userLongName: user.displayName ?? 'Anonymous User', // Use Firebase user's display name
-      userShortName: '@${user.email?.split('@').first ?? 'user'}', // Create a short username from email
-      timestamp: DateTime.now(),
-      text: _commentController.text.trim(),
-      imageURL: _imageURLController.text.trim().isNotEmpty 
-        ? _imageURLController.text.trim() 
-        : '', // Optional image URL
+  final user = FirebaseAuth.instance.currentUser;
+  
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please log in to comment')),
     );
-
-    Navigator.pop(context, newComment);
+    return;
   }
+
+  if (_commentController.text.trim().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Comment cannot be empty')),
+    );
+    return;
+  }
+
+  // Pass the tweetId as a parameter when creating the comment
+  final newComment = Comment(
+    userLongName: user.displayName ?? 'Anonymous User',
+    userShortName: '@${user.email?.split('@').first ?? 'user'}',
+    timestamp: DateTime.now(),
+    text: _commentController.text.trim(),
+    imageURL: _imageURLController.text.trim().isNotEmpty 
+      ? _imageURLController.text.trim() 
+      : '',
+    tweetId: null, // This will be set by the caller
+  );
+
+  Navigator.pop(context, newComment);
+}
 
   @override
   Widget build(BuildContext context) {

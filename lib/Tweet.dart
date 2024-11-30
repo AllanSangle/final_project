@@ -43,10 +43,12 @@ class Tweet {
     this.isBookmarked = false,
     this.isLiked = false,
     this.isRetweeted = false,
-    this.comments = const [],
-    this.likedBy = const [],
-    this.retweetedBy = const [],
-  });
+    List<Comment>? comments, // Nullable for explicit assignment
+    List<String>? likedBy,   // Nullable for explicit assignment
+    List<String>? retweetedBy, // Nullable for explicit assignment
+  })  : comments = comments ?? [], // Assign a new list if null
+        likedBy = likedBy ?? [],
+        retweetedBy = retweetedBy ?? [];
 
   Map<String, dynamic> toMap() {
     return {
@@ -144,29 +146,51 @@ class TweetInteractionManager {
     }
   }
 
-  Future<void> addComment(BuildContext context) async {
-    final reply = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const CreateComment(),
-      ),
-    );
+ Future<void> addComment(BuildContext context) async {
+  final reply = await Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) => const CreateComment(),
+    ),
+  );
 
-    if (reply != null && tweet.id != null) {
-      reply.tweetId = tweet.id;
-      final docRef = await commentsRef.add(reply.toMap());
-      reply.id = docRef.id;
+  if (reply != null && tweet.id != null) {
+    // Set the tweetId for the comment
+    reply.tweetId = tweet.id;
 
-      setState(() {
-        tweet.comments.add(reply);
-        tweet.numComments++;
-      });
+    try {
+      // Add comment to Firestore comments collection
+      final commentRef = await commentsRef.add(reply.toMap());
+      reply.id = commentRef.id;
 
+      // Update the tweet's comment count
       await tweetsRef.doc(tweet.id).update({
-        'numComments': tweet.numComments,
+        'numComments': FieldValue.increment(1)
       });
+
+      // Reload comments for this tweet
+      await loadComments();
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error adding comment: $e')),
+      );
     }
   }
+}
+
+Future<void> loadComments() async {
+  if (tweet.id == null) return;
+
+  final querySnapshot = await commentsRef
+      .where('tweetId', isEqualTo: tweet.id)
+      .orderBy('timestamp', descending: false)
+      .get();
+
+  setState(() {
+    tweet.comments = querySnapshot.docs.map((doc) => Comment.fromDocument(doc)).toList();
+  });
+}
 }
 
 class TweetWidget extends StatefulWidget {
