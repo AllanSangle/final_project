@@ -119,39 +119,40 @@ class _CreateCommentState extends State<CreateComment> {
     super.dispose();
   }
 
-  void submitComment() {
-    final user = FirebaseAuth.instance.currentUser;
+ void submitComment() {
+  final user = FirebaseAuth.instance.currentUser;
   
-    if (user == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please log in to comment')),
-      );
-      return;
-    }
-
-    if (_commentController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Comment cannot be empty')),
-      );
-      return;
-    }
-
-    // Create a new comment with the user's ID explicitly stored
-    final newComment = Comment(
-      userLongName: user.displayName ?? 'Anonymous User',
-      userShortName: '@${user.email?.split('@').first ?? 'user'}',
-      timestamp: DateTime.now(),
-      text: _commentController.text.trim(),
-      imageURL: _imageURLController.text.trim().isNotEmpty 
-        ? _imageURLController.text.trim() 
-        : '',
-      userId: user.uid, // Store the unique user ID
-      tweetId: null, // This will be set by the caller
+  if (user == null) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please log in to comment')),
     );
-    commentsRef.add(newComment.toMap());
-
-    Navigator.pop(context, newComment);
+    return;
   }
+
+  if (_commentController.text.trim().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Comment cannot be empty')),
+    );
+    return;
+  }
+
+  // Create a new comment with the user's ID explicitly stored
+  final newComment = Comment(
+    userLongName: user.displayName ?? 'Anonymous User',
+    userShortName: '@${user.email?.split('@').first ?? 'user'}',
+    timestamp: DateTime.now(),
+    text: _commentController.text.trim(),
+    imageURL: _imageURLController.text.trim().isNotEmpty 
+      ? _imageURLController.text.trim() 
+      : '',
+    userId: user.uid, // Store the unique user ID
+    tweetId: null, // This will be set by the caller
+  );
+  commentsRef.add(newComment.toMap());
+
+  // Pass the new comment back to the previous screen
+  Navigator.pop(context, newComment);
+}
 
   @override
   Widget build(BuildContext context) {
