@@ -9,6 +9,7 @@ import 'package:final_project/notification.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+
 class TweetHeader extends StatelessWidget {
   final Tweet tweet;
   final Function() onHideTweet;
@@ -123,8 +124,6 @@ class TweetHeader extends StatelessWidget {
     );
   }
 }
-
-
 
 // TweetActions component for handling likes, retweets, etc.
 class TweetActions extends StatelessWidget {

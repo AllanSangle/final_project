@@ -4,6 +4,7 @@ import 'Tweet.dart';
 import 'main.dart'; // For the signOut function
 import 'package:final_project/Profile.dart';
 import 'package:final_project/TweetPage.dart';
+import 'package:final_project/OtherUsers.dart';
 
 class SearchTweetsPage extends StatefulWidget {
   final List<Tweet> allTweets;
@@ -18,6 +19,7 @@ class SearchTweetsPage extends StatefulWidget {
 
 class _SearchTweetsPageState extends State<SearchTweetsPage> {
   List<Tweet> filteredTweets = [];
+  List<String> userSearchResults = []; // List to store matching usernames
   String searchQuery = '';
   int currentIndex = 1; // Set default to the "Search" tab
 
@@ -27,18 +29,35 @@ class _SearchTweetsPageState extends State<SearchTweetsPage> {
     filteredTweets = widget.allTweets;
   }
 
-  void updateSearchResults(String query) {
+  // Update search results based on the query
+  void updateSearchResults(String query) async {
     setState(() {
       searchQuery = query;
-
       filteredTweets = widget.allTweets.where((tweet) {
         final tweetContent = tweet.description?.toLowerCase() ?? '';
         final userName = tweet.userName.toLowerCase();
         final searchLower = query.toLowerCase();
-
+        
+        // Also search through the tweet descriptions
         return tweetContent.contains(searchLower) || userName.contains(searchLower);
       }).toList();
     });
+
+    // Search for users
+    if (query.isNotEmpty) {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('username', isGreaterThanOrEqualTo: query)
+          .where('username', isLessThan: query + 'z')
+          .get();
+      setState(() {
+        userSearchResults = snapshot.docs.map((doc) => doc['username'] as String).toList();
+      });
+    } else {
+      setState(() {
+        userSearchResults = [];
+      });
+    }
   }
 
   Future<String> fetchProfileImagePath(String userId) async {
@@ -49,6 +68,37 @@ class _SearchTweetsPageState extends State<SearchTweetsPage> {
       return 'assets/profile.png'; // Default fallback on error
     }
   }
+
+  // Function to handle navigating to the user's profile page
+  void navigateToUserProfile(String userName) async {
+    try {
+      // Query Firestore to get the user document where 'username' matches the provided userName
+      QuerySnapshot userSnapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .where('username', isEqualTo: userName)
+          .limit(1)  // Assuming usernames are unique, limit the result to 1
+          .get();
+
+      if (userSnapshot.docs.isNotEmpty) {
+        // Get the userId (document ID) from the first document in the snapshot
+        String userId = userSnapshot.docs.first.id;
+
+        // Now navigate to the UserProfilePage and pass the userId
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => UserProfilePage(userId: userId), // Pass userId
+          ),
+        );
+      } else {
+        // Handle case when no user is found
+        print('User with username $userName not found.');
+      }
+    } catch (e) {
+      print('Error retrieving userId: $e');
+    }
+  }
+
 
   void onTabTapped(int index) {
     setState(() {
@@ -89,6 +139,27 @@ class _SearchTweetsPageState extends State<SearchTweetsPage> {
               onChanged: updateSearchResults,
             ),
           ),
+          // Displaying user search results
+          if (searchQuery.isNotEmpty && userSearchResults.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.all(8.0),
+              child: Column(
+                children: [
+                  Text('Users', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: userSearchResults.length,
+                    itemBuilder: (context, index) {
+                      final userName = userSearchResults[index];
+                      return ListTile(
+                        title: Text(userName),
+                        onTap: () => navigateToUserProfile(userName),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
           Expanded(
             child: filteredTweets.isEmpty
                 ? Center(
