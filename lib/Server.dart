@@ -81,38 +81,67 @@ class TweetWidget extends StatefulWidget
 
 class _TweetWidgetState extends State<TweetWidget> {
   List<Tweet> tweets = [];
-  
+   bool _isLoading = true;
+
   @override
   void initState() {
     super.initState();
     loadTweets();
   }
+Future<void> loadTweets() async {
+  setState(() {
+    _isLoading = true; // Start the loading indicator
+  });
+
+  try {
+    // Simulate a 3-second delay
+    await Future.delayed(const Duration(seconds: 3));
+
+    final querySnapshot = await tweetsRef.orderBy('timestamp', descending: true).get();
+
+    // Load comments for each tweet
+    final loadedTweets = await Future.wait(
+      querySnapshot.docs.map((doc) async {
+        final tweet = Tweet.fromDocument(doc);
+        await loadComments(tweet);
+        return tweet;
+      }),
+    );
+
+    if (mounted) {
+      setState(() {
+        tweets = loadedTweets;
+        _isLoading = false; // Stop the loading indicator
+      });
+    }
+  } catch (e) {
+    if (mounted) {
+      setState(() {
+        _isLoading = false; // Stop the loading indicator
+      });
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Error loading tweets: ${e.toString()}')),
+    );
+  }
+}
 
   // Load tweets from Firebase
-  Future<void> loadTweets() async {
-    final querySnapshot = await tweetsRef.orderBy('timestamp', descending: true).get();
-    setState(() {
-      tweets = querySnapshot.docs.map((doc) => Tweet.fromDocument(doc)).toList();
-      
-      // Load comments for each tweet
-      for (var tweet in tweets) {
-        loadComments(tweet);
-      }
-    });
-  }
+
 
   // Load comments for a specific tweet
-  Future<void> loadComments(Tweet tweet) async {
-    final querySnapshot = await commentsRef
-        .where('tweetId', isEqualTo: tweet.id)
-        .orderBy('timestamp', descending: false)
-        .get();
-    
+Future<void> loadComments(Tweet tweet) async {
+  final querySnapshot = await commentsRef
+      .where('tweetId', isEqualTo: tweet.id)
+      .orderBy('timestamp', descending: false)
+      .get();
+
+  if (mounted) {
     setState(() {
       tweet.comments = querySnapshot.docs.map((doc) => Comment.fromDocument(doc)).toList();
     });
   }
-
+}
   // Add new tweet to Firebase
   Future<void> newTweet(Tweet tweet) async {
     final docRef = await tweetsRef.add(tweet.toMap());
@@ -161,56 +190,53 @@ class _TweetWidgetState extends State<TweetWidget> {
 
 
   @override
-@override
-Widget build(BuildContext context) {
-  return Scaffold(
-    appBar: AppBar(
-      title: const Text('Twitter Demo'),
-      actions: [
-        IconButton(
-          icon: const Icon(Icons.logout),
-          onPressed: () => signOut(context),
-        ),
-      ],
-    ),
-    body: StreamBuilder<QuerySnapshot>(
-      stream: tweetsRef.orderBy('timestamp', descending: true).snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final tweets = snapshot.data?.docs.map((doc) => Tweet.fromDocument(doc)).toList() ?? [];
-
-        return ListView.builder(
-          itemCount: tweets.length,
-          itemBuilder: (context, index) {
-            final tweet = tweets[index];
-            return TweetImage(
-              tweet: tweet,
-              bookmarkTweet: () => favouriteTweet(tweet),
-              hideTweet: () => removeTweet(index),
-            );
-          },
-        );
-      },
-    ),
-    floatingActionButton: FloatingActionButton(
-      onPressed: () async {
-        final tweet = await Navigator.push<Tweet>(
-          context,
-          MaterialPageRoute(builder: (context) => CreateNewTweet()),
-        );
-        if (tweet != null) {
-          await newTweet(tweet);
-        }
-      },
-      child: const Icon(Icons.add),
-    ),
-  );
-}
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Twitter Demo'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: () => signOut(context),
+          ),
+        ],
+      ),
+      body: _isLoading 
+        ? Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 16),
+                Text('Loading Tweets...', style: TextStyle(fontSize: 16)),
+              ],
+            ),
+          )
+        : tweets.isEmpty
+          ? Center(child: Text('No tweets found'))
+          : ListView.builder(
+              itemCount: tweets.length,
+              itemBuilder: (context, index) {
+                final tweet = tweets[index];
+                return TweetImage(
+                  tweet: tweet,
+                  bookmarkTweet: () => favouriteTweet(tweet),
+                  hideTweet: () => removeTweet(index),
+                );
+              },
+            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () async {
+          final tweet = await Navigator.push<Tweet>(
+            context,
+            MaterialPageRoute(builder: (context) => CreateNewTweet()),
+          );
+          if (tweet != null) {
+            await newTweet(tweet);
+          }
+        },
+        child: const Icon(Icons.add),
+      ),
+    );
+  }
 }

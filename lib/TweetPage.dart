@@ -177,13 +177,7 @@ class TweetActions extends StatelessWidget {
             iconColor: tweet.isLiked ? const Color.fromARGB(255, 172, 26, 15) : Colors.grey,
           ),
           const Spacer(),
-          IconButton(
-            icon: Icon(
-              tweet.isBookmarked ? Icons.bookmark : Icons.bookmark_border,
-              color: tweet.isBookmarked ? const Color.fromARGB(255, 47, 27, 158) : Colors.grey,
-            ),
-            onPressed: onBookmark,
-          ),
+    
         ],
       ),
     );
@@ -434,19 +428,25 @@ class _CreateNewTweetState extends State<CreateNewTweet> {
   }
 
   // Save draft tweet
-  Future<void> draftTweet() async {
-    final newDraft = Draft(
-      description: description.text,
-      imageURL: imageUrl.text.isNotEmpty ? imageUrl.text : '',
-    );
-    await DraftsDatabase.instance.insertDraft(newDraft);
+ 
+Future<void> draftTweet() async {
+  final newDraft = Draft(
+    description: description.text,
+    imageURL: imageUrl.text.isNotEmpty ? imageUrl.text : '',
+  );
 
-    resetInactivityTimer(); // Reset the timer after saving a draft
+  await DraftsDatabase.instance.insertDraft(newDraft);
+  resetInactivityTimer(); // Reset the timer after saving a draft
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Tweet saved as draft')),
-    );
-  }
+  ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Tweet saved as draft')),
+  );
+
+  // Schedule a notification after 2 minutes
+  Timer(const Duration(minutes: 30), () {
+    NotificationService.showNotification();
+  });
+}
 
   Future<void> createTweet() async {
   final user = FirebaseAuth.instance.currentUser;
