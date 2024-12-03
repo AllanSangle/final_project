@@ -146,38 +146,36 @@ class TweetInteractionManager {
     }
   }
 
- Future<void> addComment(BuildContext context) async {
-  final reply = await Navigator.push(
-    context,
-    MaterialPageRoute(
-      builder: (context) => const CreateComment(),
-    ),
-  );
+Future<void> addComment(BuildContext context) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const CreateComment()),
+    );
 
-  if (reply != null && tweet.id != null) {
-    // Set the tweetId for the comment
-    reply.tweetId = tweet.id;
-
-    try {
-      // Add comment to Firestore comments collection
-      final commentRef = await commentsRef.add(reply.toMap());
-      reply.id = commentRef.id;
-
-      // Update the tweet's comment count
-      await tweetsRef.doc(tweet.id).update({
-        'numComments': FieldValue.increment(1)
-      });
-
-      // Reload comments for this tweet
-      await loadComments();
-
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error adding comment: $e')),
+    if (result is Comment) {
+      // Set the tweetId for the comment
+      final commentToAdd = Comment(
+        userLongName: result.userLongName,
+        userShortName: result.userShortName,
+        timestamp: result.timestamp,
+        text: result.text,
+        imageURL: result.imageURL,
+        userId: result.userId,
+        tweetId: tweet.id,
       );
+
+      // Add the comment to Firestore
+      await commentsRef.add(commentToAdd.toMap());
+
+      // Update the local tweet object
+      tweet.comments.add(commentToAdd);
+      tweet.numComments++;
+
+      // Trigger state update
+      setState(() {});
     }
   }
-}
+
 
 Future<void> loadComments() async {
   if (tweet.id == null) return;
